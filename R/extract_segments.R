@@ -80,7 +80,6 @@ extract_segments <- function(rpart_fit, alpha = NULL){
 
     segments$lift_lower <- sapply(CI, function(x) x[[2]])
     segments$lift_upper <- sapply(CI, function(x) x[[3]])
-    if(!identical(unname(sapply(CI, function(x) x[[1]])), segments$lift)) stop("something is wrong with lift lower/upper. Do deep debugging")
   }
   return(segments)
 }
