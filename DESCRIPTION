@@ -1,0 +1,17 @@
+Package: segmenTree
+Type: Package
+Title: Find sub groups (segments) with heterogenuus treatment effect in Randomised Controlled Trial data.
+Version: 0.2
+Date: 2020-04-07
+Author: Iyar Lin <iyarlin@gmail.com>
+Maintainer: Iyar Lin <iyarlin@gmail.com>
+Description: The segmenTree package implements a decision tree based algorithm for 
+  exploration of heterogeneous treatment effects in Randomised Controlled Trial data.
+  It uses the rpart package as the backend with a predifined method on top.
+License: file LICENSE
+Depends: 
+  rpart (>= 4.1.15), 
+  R (>= 3.5.1)
+RoxygenNote: 7.0.2
+Roxygen: list(markdown = TRUE)
+Encoding: UTF-8
