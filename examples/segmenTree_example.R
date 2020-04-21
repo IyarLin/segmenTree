@@ -30,7 +30,7 @@ causal_tree <- rpart(y ~ ., data = dat,
 
 causal_tree <- rpart(y ~ ., data = dat,
                      method = lift_method, control = rpart.control(cp = 0.001),
-                     parms = list())
+                     parms = list(), x = T)
 
 
 # Predict treatment effect and compare with actual treatment effect

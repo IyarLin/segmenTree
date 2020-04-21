@@ -16,6 +16,7 @@
 
 extract_segments <- function(rpart_fit, alpha = NULL){
   if(is.null(rpart_fit$y)) stop("rpart-fit must be the result of an rpart call with y = T")
+  if(is.null(rpart_fit$x)) stop("rpart-fit must be the result of an rpart call with x = T")
   value_reduction <- function(df){
     if(df$eqn[1]=="="){
       if(nrow(df) == 1){
@@ -27,16 +28,18 @@ extract_segments <- function(rpart_fit, alpha = NULL){
     } else {
       df$val <- as.numeric(df$val)
       ans_low <- max(df$val[df$eqn == ">"])
+      if(is.infinite(ans_low)) ans_low <- min(rpart_fit$x[, colnames(rpart_fit$x) == df$var[1]], na.rm = T)
       ans_high <- min(df$val[df$eqn == "<"])
+      if(is.infinite(ans_high)) ans_high <- max(rpart_fit$x[, colnames(rpart_fit$x) == df$var[1]], na.rm = T)
       return(list(c(paste0(">=", ans_low), paste0("<", ans_high))))
     }
   }
-
+  
   leaves <- rpart_fit$frame
   leaves$node <- as.integer(row.names(leaves))
   row.names(leaves) <- NULL
   leaves <- leaves[leaves$var == "<leaf>", ]
-
+  
   paths <- path.rpart(rpart_fit, nodes = leaves$node, print.it = F)
   segments <- sapply(paths, function(x){
     x <- x[-1] # remove root
@@ -53,13 +56,13 @@ extract_segments <- function(rpart_fit, alpha = NULL){
     return(paste0(ans3, collapse = ", "))
   }
   )
-
+  
   segments <- data.frame(segment = segments,
                          n = leaves$n,
                          lift = leaves$yval,
                          row.names = NULL)
   segments <- segments[order(segments$lift, decreasing = T), ]
-
+  
   if(!is.null(alpha)){
     preds <- predict(rpart_fit)
     unique_preds <- segments$lift
@@ -77,7 +80,7 @@ extract_segments <- function(rpart_fit, alpha = NULL){
       lift_upper = lift + qnorm(alpha/2, lower.tail = F)*lift_sd
       return(list(lift, lift_lower, lift_upper))
     }, simplify = F)
-
+    
     segments$lift_lower <- sapply(CI, function(x) x[[2]])
     segments$lift_upper <- sapply(CI, function(x) x[[3]])
   }
