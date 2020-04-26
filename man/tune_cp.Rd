@@ -13,26 +13,28 @@ tune_cp(rpart_fit, cp_num = 10, train_frac = 0.8, M = 10)
 
 \item{train_frac}{fraction of observations to be used to train the model in each cross validation sample}
 
-\item{M}{number of cross validation samples}
+\item{M}{number of cross validation rounds}
 }
 \value{
-Mean out of sample error for every input cp value
+A matrix containin in every row the sampling result for every cp in it's column
 }
 \description{
 This function uses cross validation to find the optimal cp.
-The metric optimsed is the out of sample modified gini
 }
 \details{
-The baseline is measured as the actual lift in every test set
-node. Nodes with too few observations (such that lift is nan) are regardedd as maximum error (0.25)
+For every cp value the tree is pruned accordignly. Next the data is
+repeateddly split to train and test, where's the train is used to estimate lift
+in each node. The metric calculated at each noded is the multiplication of
+the train and test lifts. If their signs agree a positive outcome is obtained.
+Otherwise, a negative one.
 }
 \examples{
-set.seed(1) # vary this and the sample size to get a sense of the model performance
+set.seed(3) # vary this and the sample size to get a sense of the model performance
 library(segmenTree)
 
 # Generate a dataset
 p_x <- function(Tr, X1, X2, X3){
-  lp <- -X1 + 0.2*X2 + as.numeric(X3)/6
+  lp <- 2*X1 + 0.2*X2 + as.numeric(X3)/6
   0.25 + 2*Tr*X1^3 + 0.5*exp(lp)/(1+exp(lp))
 }
 
@@ -48,27 +50,37 @@ dat <- data.frame(y = I(y_mat), X1, X2, X3)
 
 # Fit a causal tree
 lift_method <- import_lift_method()
-causal_tree <- rpart(y ~ ., data = dat,
+segment_tree <- rpart(y ~ ., data = dat,
               method = lift_method,
               control = rpart.control(cp = 0),
-              parms = list(), y = T)
+              parms = list(), y = T, x = T)
 
-# find optimal cp and train final model
-# cp_lift <- tune_cp(causal_tree, cp_num = 10, M = 50)
-# optimal_cp <- as.numeric(names(which.max(apply(cp_lift, 2, mean))))
+# find optimal cp and train final model - still WIP
+## Use elbow method on the cp itself
+cp_vec <- segment_tree$cptable[1:10, 1]
+plot(cp_vec)
 
-causal_tree <- rpart(y ~ ., data = dat,
-                     method = lift_method, control = rpart.control(cp = 0.001),
-                     parms = list())
+dd <- data.frame(i = 1:length(cp_vec), cp = cp_vec)
+dd$delta1 <- c(NA, dd$cp[1:9] - dd$cp[2:10])
+dd$delta2 <- c(NA, NA, delta_1[1:8] - delta_1[2:9])
+dd$elbow_strengh <- c((dd$delta2 - dd$delta1)[-1], NA)
+
+plot(dd$i, dd$elbow_strengh)
+optimal_cp
+## Use tune_cp function
+# cp_lift <- tune_cp(segment_tree, cp_num = 6, train_frac = 0.8, M = 100)
+# optimal_cp <- as.numeric(names(which.max(apply(cp_lift, 2, mean)/apply(cp_lift, 2, sd))))
+
+segment_tree2 <- prune(segment_tree, cp = cp_vec[2])
 
 
 # Predict treatment effect and compare with actual treatment effect
-tau <- predict(causal_tree, dat)
+tau <- predict(segment_tree2, dat)
 p_treat <- p_x(rep(1, n), X1, X2, X3)
 p_cont <- p_x(rep(0, n), X1, X2, X3)
 cate <- p_treat - p_cont
 
-par(mfrow = c(1, 3))
+# par(mfrow = c(1, 3))
 y_lim <- c(min(tau, cate), max(tau, cate))
 plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "segmenTree",
      xlab = "X1", ylab = "true (red) vs predicted (black) lift")
@@ -76,7 +88,7 @@ points(dat$X1, cate, col = "red")
 points(dat$X1, tau)
 
 # explore the resulting segments
-segments <- extract_segments(causal_tree, alpha = 0.15)
+segments <- extract_segments(segment_tree, alpha = 0.15)
 # print(segments)
 
 # Compare to a regular classfication model
@@ -114,5 +126,5 @@ points(dat$X1, cate, col = "red")
 points(dat$X1, tau3)
 }
 \seealso{
-\code{\link{import_lift_method}}
+\code{\link{cp_elbow}}
 }

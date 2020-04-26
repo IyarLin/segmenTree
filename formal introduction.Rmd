@@ -1,0 +1,20 @@
+---
+title: "'segmenTree' algorithm formal introduction"
+author: "Iyar Lin"
+date: "22/04/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F)
+```
+
+The 'segmenTree' algorithm is a decision tree based algorithm for discovery of heterogeneous treatment effects in randomized controlled trial results. 
+
+What follows below is a light intro to the algorithm specifics.
+
+# Problem setup
+
+We observe a randomised controlled trial sample $\{y_i,x_i,t_i\}_{i=1}^{N}$ where $y_i \in \{0,1\}$ is a binary outcome of interest, $t_i \in \{0,1\}$ is a binary treatment and $x_i \in \mathbb{R}^p$ is a vector of observation covariates. Since we're dealing with a randomised trial we can assume that the treatment assignment is independent of the covariates such that: $P(T_i = 1|x_i) = P(T_i = 1)$.
+
+Our goal is to estimate the conditional treatment effect (AKA CATE): $\tau(x) = \mathbb{E}(Y|x_, T = 1) - \mathbb{E}(Y|x_, T = 0)$

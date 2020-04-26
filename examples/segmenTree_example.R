@@ -3,7 +3,7 @@ library(segmenTree)
 
 # Generate a dataset
 p_x <- function(Tr, X1, X2, X3){
-  lp <- -X1 + 0.2*X2 + as.numeric(X3)/6
+  lp <- 2*X1 + 0.2*X2 + as.numeric(X3)/6
   0.25 + 2*Tr*X1^3 + 0.5*exp(lp)/(1+exp(lp))
 }
 
@@ -19,22 +19,25 @@ dat <- data.frame(y = I(y_mat), X1, X2, X3)
 
 # Fit a causal tree
 lift_method <- import_lift_method()
-causal_tree <- rpart(y ~ ., data = dat,
+segment_tree <- rpart(y ~ ., data = dat,
               method = lift_method,
               control = rpart.control(cp = 0),
-              parms = list(), y = T)
+              parms = list(), y = T, x = T)
 
-# find optimal cp and train final model
-# cp_lift <- tune_cp(causal_tree, cp_num = 10, M = 50)
-# optimal_cp <- as.numeric(names(which.max(apply(cp_lift, 2, mean))))
+# find optimal cp and train final model - still WIP
+## Use elbow method on the cp itself
 
-causal_tree <- rpart(y ~ ., data = dat,
-                     method = lift_method, control = rpart.control(cp = 0.001),
-                     parms = list(), x = T)
+optimal_cp <- cp_elbow(segment_tree)
+
+## Use tune_cp function
+# cp_lift <- tune_cp(segment_tree, cp_num = 6, train_frac = 0.8, M = 100)
+# optimal_cp <- as.numeric(names(which.max(apply(cp_lift, 2, mean)/apply(cp_lift, 2, sd))))
+
+segment_tree <- prune(segment_tree, cp = optimal_cp)
 
 
 # Predict treatment effect and compare with actual treatment effect
-tau <- predict(causal_tree, dat)
+tau <- predict(segment_tree, dat)
 p_treat <- p_x(rep(1, n), X1, X2, X3)
 p_cont <- p_x(rep(0, n), X1, X2, X3)
 cate <- p_treat - p_cont
@@ -47,16 +50,12 @@ points(dat$X1, cate, col = "red")
 points(dat$X1, tau)
 
 # explore the resulting segments
-segments <- extract_segments(causal_tree, alpha = 0.15)
-# print(segments)
+segments <- extract_segments(segment_tree, alpha = 0.15)
+print(segments)
 
 # Compare to a regular classfication model
 dat2 <- data.frame(y, X1, X2, X3, Tr)
-fit2 <- rpart(y ~ ., data = dat2, control = rpart.control(cp = 0))
-fit2 <- rpart(y ~ ., data = dat,
-                     method = lift_method,
-                     control = rpart.control(cp = fit2$cptable[max(which(fit2$cptable[, 2] < 3)), 1]),
-                     parms = list())
+fit2 <- rpart(y ~ ., data = dat2)
 
 dat2_treat <- dat2; dat2_cont <- dat2
 dat2_treat$Tr <- 1L; dat2_cont$Tr <- 0L

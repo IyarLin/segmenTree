@@ -1,50 +1,44 @@
 #' @title Tune cp hyper parameter using cross validation
 #' @description This function uses cross validation to find the optimal cp.
-#' The metric optimsed is the out of sample modified gini
 #'
-#' @details The baseline is measured as the actual lift in every test set
-#' node. Nodes with too few observations (such that lift is nan) are regardedd as maximum error (0.25)
+#' @details For every cp value the tree is pruned accordignly. Next the data is
+#' repeateddly split to train and test, where's the train is used to estimate lift
+#' in each node. The metric calculated at each noded is the multiplication of
+#' the train and test lifts. If their signs agree a positive outcome is obtained. 
+#' Otherwise, a negative one. 
 
-#' @return Mean out of sample error for every input cp value
+#' @return A matrix containin in every row the sampling result for every cp in it's column
 #' @example examples/segmenTree_example.R
 #' @param rpart_fit An object of class rpart
 #' @param cp_num How many cp values to evaluate
 #' @param train_frac fraction of observations to be used to train the model in each cross validation sample
-#' @param M number of cross validation samples
+#' @param M number of cross validation rounds
 
-#' @seealso \code{\link{import_lift_method}}
+#' @seealso \code{\link{cp_elbow}}
 #'
 #' @export
 
 tune_cp <- function(rpart_fit, cp_num = 10, train_frac = 0.8, M = 10){
-  if(is.null(rpart_fit$x)) stop("must run rpart with x = T")
   if(is.null(rpart_fit$y)) stop("must run rpart with y = T")
-  dat <- data.frame(y = rpart_fit$y, rpart_fit$x)
-  cp_vec <- rpart_fit$cptable[1:cp_num]
+  if(cp_num > nrow(rpart_fit$cptable)) cp_num <- nrow(rpart_fit$cptable)
+  cp_vec <- rpart_fit$cptable[1:cp_num, 1]
   ans <- matrix(nrow = M, ncol = length(cp_vec), dimnames = list(1:M, cp_vec))
-  for(i in 1:nrow(ans)){
-    train_ind <- sample.int(nrow(dat), nrow(dat) * train_frac)
-    train_set <- dat[train_ind, ]
-    test_set <- dat[-train_ind, ]
-    for(j in 1:ncol(ans)){
-      train_model <- rpart(y ~ ., data = train_set,
-                           control = rpart.control(cp = cp_vec[j]),
-                           method = lift_method,
-                           parms = list())
-      preds <- predict(train_model, test_set)
-      unique_preds <- unique(preds)
-      pred_ind <- match(preds, unique_preds)
-      actuals <- tapply(test_set$y, c(pred_ind, pred_ind), function(y_mat){
-        y_mat <- matrix(y_mat, ncol = 2)
-        lift <- mean(y_mat[y_mat[, 2] == 1, 1]) - mean(y_mat[y_mat[, 2] == 0, 1])
-        return(list(lift, nrow(y_mat)))
-      }, simplify = T)
-      agg_lift <- data.frame(n = sapply(actuals, function(x) x[[2]]),
-                              lift_actual = sapply(actuals, function(x) x[[1]]),
-                              pred = unique_preds)
-      agg_lift$lift_actual[is.nan(agg_lift$lift_actual)] <- 0
-
-      ans[i, j] <- weighted.mean(agg_lift$lift_actual * sign(agg_lift$pred), agg_lift$n)
+  for(j in 1:ncol(ans)){
+    pruned_tree <- prune(rpart_fit, cp = cp_vec[j])
+    leaves <- which(pruned_tree$frame$var == "<leaf>")
+    for(i in 1:nrow(ans)){
+      train_logic <- sample(c(rep(T, nrow(rpart_fit$y) * train_frac), 
+                       rep(F, nrow(rpart_fit$y) - nrow(rpart_fit$y) * train_frac)))
+      
+      res <- sapply(leaves, function(leaf){
+        train_est <- mean(pruned_tree$y[train_logic & pruned_tree$where == leaf & pruned_tree$y[, 2] == 1, 1]) - 
+          mean(pruned_tree$y[train_logic & pruned_tree$where == leaf & pruned_tree$y[, 2] == 0, 1])
+        test_est <- mean(pruned_tree$y[!train_logic & pruned_tree$where == leaf & pruned_tree$y[, 2] == 1, 1]) - 
+          mean(pruned_tree$y[!train_logic & pruned_tree$where == leaf & pruned_tree$y[, 2] == 0, 1])
+        return(c(train_est * test_est, sum(pruned_tree$where == leaf)))
+      })
+      res[is.nan(res)] <- 0
+      ans[i, j] <- weighted.mean(res[1, ], res[2, ])
     }
   }
   return(ans)
