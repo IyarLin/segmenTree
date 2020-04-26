@@ -22,7 +22,7 @@ and returns the resulting segments in table form. See example
 below for more details on it's usage.
 }
 \examples{
-set.seed(3) # vary this and the sample size to get a sense of the model performance
+set.seed(1) # vary this and the sample size to get a sense of the model performance
 library(segmenTree)
 
 # Generate a dataset
@@ -41,7 +41,7 @@ y <- sapply(p, function(x) rbinom(1, 1, x))
 y_mat <- cbind(y, Tr)
 dat <- data.frame(y = I(y_mat), X1, X2, X3)
 
-# Fit a causal tree
+# Fit a segment tree
 lift_method <- import_lift_method()
 segment_tree <- rpart(y ~ ., data = dat,
               method = lift_method,
@@ -50,30 +50,23 @@ segment_tree <- rpart(y ~ ., data = dat,
 
 # find optimal cp and train final model - still WIP
 ## Use elbow method on the cp itself
-cp_vec <- segment_tree$cptable[1:10, 1]
-plot(cp_vec)
 
-dd <- data.frame(i = 1:length(cp_vec), cp = cp_vec)
-dd$delta1 <- c(NA, dd$cp[1:9] - dd$cp[2:10])
-dd$delta2 <- c(NA, NA, delta_1[1:8] - delta_1[2:9])
-dd$elbow_strengh <- c((dd$delta2 - dd$delta1)[-1], NA)
+optimal_cp <- cp_elbow(segment_tree)
 
-plot(dd$i, dd$elbow_strengh)
-optimal_cp
 ## Use tune_cp function
 # cp_lift <- tune_cp(segment_tree, cp_num = 6, train_frac = 0.8, M = 100)
 # optimal_cp <- as.numeric(names(which.max(apply(cp_lift, 2, mean)/apply(cp_lift, 2, sd))))
 
-segment_tree2 <- prune(segment_tree, cp = cp_vec[2])
+segment_tree <- prune(segment_tree, cp = optimal_cp)
 
 
 # Predict treatment effect and compare with actual treatment effect
-tau <- predict(segment_tree2, dat)
+tau <- predict(segment_tree, dat)
 p_treat <- p_x(rep(1, n), X1, X2, X3)
 p_cont <- p_x(rep(0, n), X1, X2, X3)
 cate <- p_treat - p_cont
 
-# par(mfrow = c(1, 3))
+par(mfrow = c(1, 3))
 y_lim <- c(min(tau, cate), max(tau, cate))
 plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "segmenTree",
      xlab = "X1", ylab = "true (red) vs predicted (black) lift")
@@ -82,15 +75,11 @@ points(dat$X1, tau)
 
 # explore the resulting segments
 segments <- extract_segments(segment_tree, alpha = 0.15)
-# print(segments)
+print(segments)
 
 # Compare to a regular classfication model
 dat2 <- data.frame(y, X1, X2, X3, Tr)
-fit2 <- rpart(y ~ ., data = dat2, control = rpart.control(cp = 0))
-fit2 <- rpart(y ~ ., data = dat,
-                     method = lift_method,
-                     control = rpart.control(cp = fit2$cptable[max(which(fit2$cptable[, 2] < 3)), 1]),
-                     parms = list())
+fit2 <- rpart(y ~ ., data = dat2)
 
 dat2_treat <- dat2; dat2_cont <- dat2
 dat2_treat$Tr <- 1L; dat2_cont$Tr <- 0L
@@ -101,7 +90,6 @@ plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "regular model",
      xlab = "X1", ylab = "")
 points(dat$X1, cate, col = "red")
 points(dat$X1, tau2)
-
 
 # Compare to training seperately on control and treatment
 dat3_treat <- dat2[dat2$Tr == 1, -5]

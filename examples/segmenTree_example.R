@@ -17,7 +17,7 @@ y <- sapply(p, function(x) rbinom(1, 1, x))
 y_mat <- cbind(y, Tr)
 dat <- data.frame(y = I(y_mat), X1, X2, X3)
 
-# Fit a causal tree
+# Fit a segment tree
 lift_method <- import_lift_method()
 segment_tree <- rpart(y ~ ., data = dat,
               method = lift_method,
@@ -66,7 +66,6 @@ plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "regular model",
      xlab = "X1", ylab = "")
 points(dat$X1, cate, col = "red")
 points(dat$X1, tau2)
-
 
 # Compare to training seperately on control and treatment
 dat3_treat <- dat2[dat2$Tr == 1, -5]

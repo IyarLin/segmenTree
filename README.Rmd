@@ -21,8 +21,9 @@ Let's generate a dataset:
 
 ```{r}
 set.seed(1) # vary this and the sample size to get a sense of the model performance
+# Generate a dataset
 p_x <- function(Tr, X1, X2, X3){
-  lp <- -X1 + 0.2*X2 + as.numeric(X3)/6
+  lp <- 2*X1 + 0.2*X2 + as.numeric(X3)/6
   0.25 + 2*Tr*X1^3 + 0.5*exp(lp)/(1+exp(lp))
 }
 
@@ -37,29 +38,37 @@ y_mat <- cbind(y, Tr)
 dat <- data.frame(y = I(y_mat), X1, X2, X3)
 ```
 
-Next, let's import the lift method and use rpart to fit a causal tree:
+Next, let's import the lift method and use rpart to fit a segment tree:
 
 ```{r}
 lift_method <- import_lift_method()
-causal_tree <- rpart(y ~ ., data = dat,
+segment_tree <- rpart(y ~ ., data = dat,
               method = lift_method,
-              control = rpart.control(cp = 0.001),
-              parms = list(), y = T)
+              control = rpart.control(cp = 0),
+              parms = list(), y = T, x = T)
+
 ```
 
-We used `cp = 0.001` above based on some experimentation. A function for tuning the `cp` paramter using cross validation is in the works. 
+Next, we prune the tree. The package includesd 2 functions to do so: `tune_cp` and `cp_elbow`. We'll use the `cp_elbow` function which uses the elbow method along with elbow strength to find the optimal cp:
+
+```{r}
+optimal_cp <- cp_elbow(segment_tree)
+# prune:
+segment_tree <- prune(segment_tree, cp = optimal_cp)
+```
+
 
 Let's explore the resulting segments:
 
 ```{r, results = "asis", warning=F, message=F}
-segments <- extract_segments(causal_tree, alpha = 0.15)
-pander::pandoc.table(segments)
+segments <- extract_segments(segment_tree, alpha = 0.15)
+pander::pandoc.table(segments, split.tables = Inf)
 ```
 
 Let's compare the estimated lift (in black) vs the true lift (in red):
 
 ```{r}
-tau <- predict(causal_tree, dat)
+tau <- predict(segment_tree, dat)
 p_treat <- p_x(rep(1, n), X1, X2, X3)
 p_cont <- p_x(rep(0, n), X1, X2, X3)
 cate <- p_treat - p_cont
@@ -75,11 +84,7 @@ Just to get a sense of why we need this kind of model, let's try to estimate lif
 
 ```{r}
 dat2 <- data.frame(y, X1, X2, X3, Tr)
-fit2 <- rpart(y ~ ., data = dat2, control = rpart.control(cp = 0))
-fit2 <- rpart(y ~ ., data = dat,
-                     method = lift_method,
-                     control = rpart.control(cp = fit2$cptable[max(which(fit2$cptable[, 2] < 3)), 1]),
-                     parms = list())
+fit2 <- rpart(y ~ ., data = dat2)
 
 dat2_treat <- dat2; dat2_cont <- dat2
 dat2_treat$Tr <- 1L; dat2_cont$Tr <- 0L
