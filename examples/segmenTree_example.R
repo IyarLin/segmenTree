@@ -22,18 +22,19 @@ lift_method <- import_lift_method()
 segment_tree <- rpart(y ~ ., data = dat,
               method = lift_method,
               control = rpart.control(cp = 0),
-              parms = list(), y = T, x = T)
+              parms = list(max_lift = 0.2), x = T)
 
 # find optimal cp and train final model - still WIP
-## Use elbow method on the cp itself
+## Option 1: Use elbow method on the cp itself
 
-optimal_cp <- cp_elbow(segment_tree)
+optimal_cp_elbow <- cp_elbow(segment_tree)
 
 ## Use tune_cp function
-# cp_lift <- tune_cp(segment_tree, cp_num = 6, train_frac = 0.8, M = 100)
-# optimal_cp <- as.numeric(names(which.max(apply(cp_lift, 2, mean)/apply(cp_lift, 2, sd))))
+optimal_cp_cv <- tune_cp(segment_tree, cp_num = 6, train_frac = 0.8, M = 100)
+optimal_cp_cv <- optimal_cp_cv$optimal_cp
 
-segment_tree <- prune(segment_tree, cp = optimal_cp)
+# We'll go with elbow method
+segment_tree <- prune(segment_tree, cp = optimal_cp_elbow)
 
 
 # Predict treatment effect and compare with actual treatment effect

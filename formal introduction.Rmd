@@ -9,12 +9,23 @@ output: pdf_document
 knitr::opts_chunk$set(echo = F)
 ```
 
-The 'segmenTree' algorithm is a decision tree based algorithm for discovery of heterogeneous treatment effects in randomized controlled trial results. 
+The 'segmenTree' algorithm is a decision tree based algorithm for discovery of heterogeneous treatment effects in randomized controlled trial (RCT) data.
 
 What follows below is a light intro to the algorithm specifics.
 
 # Problem setup
 
-We observe a randomised controlled trial sample $\{y_i,x_i,t_i\}_{i=1}^{N}$ where $y_i \in \{0,1\}$ is a binary outcome of interest, $t_i \in \{0,1\}$ is a binary treatment and $x_i \in \mathbb{R}^p$ is a vector of observation covariates. Since we're dealing with a randomised trial we can assume that the treatment assignment is independent of the covariates such that: $P(T_i = 1|x_i) = P(T_i = 1)$.
+We observe a RCT data $\{y_i,x_i,t_i\}_{i=1}^{N}$ where $y_i \in \{0,1\}$ is a binary outcome of interest, $t_i \in \{0,1\}$ is a binary treatment and $x_i \in \mathbb{R}^p$ is a vector of observation covariates. Since our data was generated in a RCT we can assume that the treatment assignment is independent of the covariates such that: $P(T_i = 1|x_i) = P(T_i = 1)$, meaning: $P(Y|do(T=1)) = P(Y|T=1)$. 
 
-Our goal is to estimate the conditional treatment effect (AKA CATE): $\tau(x) = \mathbb{E}(Y|x_, T = 1) - \mathbb{E}(Y|x_, T = 0)$
+In RCTs one usually estimates the average treatment effect $ATE$ using: 
+
+$$\hat{ATE} = \mathbb{E}(Y|T=1) - \mathbb{E}(Y|T=0) = \frac{\sum_{i=1}^N \{y_i=1,t_i=1\}}{\sum_{i=1}^N\{t_i=1\}} - \frac{\sum_{i=1}^N \{y_i=1,t_i=0\}}{\sum_{i=1}^N\{t_i=0\}}$$
+We'd like to go a step further and partition the data to $k$ segments $\{l_j\}_{j=1}^k$ such that we maximize the associated segment average treatment effect $\{ATE_j\}$ heterogeneity. More on what that means later.
+
+These segment $ATE_j$ are known in the literature as conditional treatment effect (AKA $CATE$): $\tau(x) = ATE_j \,\, \forall x \in l_j = \mathbb{E}(Y|T = 1, X = x) - \mathbb{E}(Y|T = 0, X = x)$ where in our case. We can estimate the $ATE_j$ with:
+
+$$\hat{ATE}_j = \frac{\sum_{i=1}^N \{y_i=1,t_i=1,x_i \in l_j\}}{\sum_{i=1}^N\{t_i=1,x_i \in l_j\}} - \frac{\sum_{i=1}^N \{y_i=1,t_i=0,x_i \in l_j\}}{\sum_{i=1}^N\{t_i=0,x_i \in l_j\}}$$
+
+
+
+
