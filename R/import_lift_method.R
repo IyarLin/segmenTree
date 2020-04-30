@@ -4,21 +4,24 @@
 #' imports a list of functions to serve as a user defined method
 #' with the rpart function.
 #' See example below for more details on it's usage.
+#' 
+#' @param f_n A function that takes as input the sub population
+#' size and returns a scalar/vector of the same length. This
+#' number is used to weight the commpeting sub populations when
+#' making the split. See example below for a use case. If NULL
+#' the sample size is ignored when comparing splits.
 #'
 #' @return A list containing eval, split and init functions.
 #' @example examples/segmenTree_example.R
 #' @details The rpart function accepts in the method argument
 #' a user defined list. This function imports the list that
-#' implements a causal tree. In addition to the method a user
-#' also needs to input the parms argument with the baseline lift
-#' in the population and the significance level for lift confidence
-#' intervals returned in the yval2 object. See example below for more
-#' details on how to use.
+#' implements a segment tree.
+
 #' @seealso \code{\link{extract_segments}}
 #'
 #' @export
 
-import_lift_method <- function () 
+import_lift_method <- function (f_n = NULL) 
 {
   lift_method = list(eval = function(y, wt, parms) {
     positive_rate_treatment <- mean(y[y[, 2] == 1, 1])
@@ -27,16 +30,16 @@ import_lift_method <- function ()
     positive_rate_control <- mean(y[y[, 2] == 0, 1])
     positive_rate_control <- replace(positive_rate_control, 
                                      is.nan(positive_rate_control), 0)
-    treatment_cases <- sum(y[, 2] == 1)
-    control_cases <- sum(y[, 2] == 0)
+
     lift <- positive_rate_treatment - positive_rate_control
-    lift_to_p <- (lift + parms$max_lift)/(2*parms$max_lift)
-    lift_to_p <- min(c(max(c(lift_to_p, 0)), 1))
-    deviance <- lift_to_p * (1 - lift_to_p) * nrow(y)/parms$n
+    
+    deviance <- nrow(y)^3
+    
     list(label = lift, deviance = deviance)
   }, split = function(y, wt, x, parms, continuous) {
-    n <- nrow(y)
+    if(is.null(f_n)) f_n <- function(x) 1
     if (continuous) {
+      n <- nrow(y)
       positive_cases <- sum(y[, 1])
       treatment_cases <- sum(y[, 2])
       cases_left <- 1:(n - 1)
@@ -55,18 +58,20 @@ import_lift_method <- function ()
       positive_rate_treatment_left[is.nan(positive_rate_treatment_left)] <- 0
       positive_rate_control_left[is.nan(positive_rate_control_left)] <- 0
       lift_left <- positive_rate_treatment_left - positive_rate_control_left
+      lift_left[is.nan(lift_left)] <- 0
+      lift_left_abs <- abs(lift_left)
+      
       positive_rate_treatment_right <- positive_treatment_right/treatment_n_right
       positive_rate_control_right <- positive_control_right/control_n_right
       positive_rate_treatment_right[is.nan(positive_rate_treatment_right)] <- 0
       positive_rate_control_right[is.nan(positive_rate_control_right)] <- 0
       lift_right <- positive_rate_treatment_right - positive_rate_control_right
-      lift_to_p_left <- (lift_left + parms$max_lift)/(2 * parms$max_lift)
-      lift_to_p_right <- (lift_right + parms$max_lift)/(2 * parms$max_lift)
-      goodness <- cases_left * (0.25 - lift_to_p_left * 
-                                  (1 - lift_to_p_left)) + cases_right * (0.25 - 
-                                                                           lift_to_p_right * (1 - lift_to_p_right))
-      list(goodness = goodness, direction = sign(lift_left - 
-                                                   lift_right))
+      lift_right[is.nan(lift_right)] <- 0
+      lift_right_abs <- abs(lift_right)
+      
+      goodness <- pmax(lift_left_abs*f_n(cases_left), 
+                       lift_right_abs*f_n(cases_right))
+      list(goodness = goodness, direction = sign(lift_left - lift_right))
     } else {
       cases_x <- tapply(y[, 1], x, length)
       positive_cases_x <- tapply(y[, 1], x, sum)
@@ -106,16 +111,17 @@ import_lift_method <- function ()
       positive_rate_control_right <- positive_control_right/control_n_right
       positive_rate_control_right[is.nan(positive_rate_control_right)] <- 0
       lift_left <- positive_rate_treatment_left - positive_rate_control_left
+      lift_left[is.nan(lift_left)] <- 0
+      lift_left_abs <- abs(lift_left)
       lift_right <- positive_rate_treatment_right - positive_rate_control_right
-      lift_to_p_left <- (lift_left + parms$max_lift)/(2 * parms$max_lift)
-      lift_to_p_right <- (lift_right + parms$max_lift)/(2 * parms$max_lift)
-      goodness <- cases_x_left * (0.25 - lift_to_p_left * 
-                                    (1 - lift_to_p_left)) + cases_x_right * (0.25 - 
-                                                                               lift_to_p_right * (1 - lift_to_p_right))
+      lift_right[is.nan(lift_right)] <- 0
+      lift_right_abs <- abs(lift_right)
+      
+      goodness <- pmax(lift_left_abs*f_n(cases_x_left), 
+                       lift_right_abs*f_n(cases_x_right))
       list(goodness = goodness, direction = ux[ord])
     }
   }, init = function(y, offset, parms, wt) {
-    if(is.null(parms$max_lift)) parms$max_lift <- 1
     if (!is.matrix(y) | ncol(y) != 2) {
       stop("y has to be a 2 column matrix")
     }
@@ -125,9 +131,6 @@ import_lift_method <- function ()
     if (!missing(offset) && length(offset) > 0) {
       warning("offset argument ignored")
     }
-    if (is.null(parms$alpha)) parms$alpha <- 0.05
-    parms$baseline_lift <- mean(y[y[, 2] == 1, 1]) - mean(y[y[, 
-                                                              2] == 0, 1])
     parms$n <- nrow(y)
     sfun <- function(yval, dev, wt, ylevel, digits) {
       paste(" lift=", format(signif(yval, digits)), ", deviance=", 

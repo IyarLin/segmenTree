@@ -45,21 +45,12 @@ dat <- data.frame(y = I(y_mat), X1, X2, X3)
 lift_method <- import_lift_method()
 segment_tree <- rpart(y ~ ., data = dat,
               method = lift_method,
-              control = rpart.control(cp = 0),
-              parms = list(max_lift = 0.2), x = T)
+              control = rpart.control(cp = 0, minbucket = 1000),
+              parms = list(), x = T)
 
-# find optimal cp and train final model - still WIP
-## Option 1: Use elbow method on the cp itself
-
-optimal_cp_elbow <- cp_elbow(segment_tree)
-
-## Use tune_cp function
-optimal_cp_cv <- tune_cp(segment_tree, cp_num = 6, train_frac = 0.8, M = 100)
-optimal_cp_cv <- optimal_cp_cv$optimal_cp
-
-# We'll go with elbow method
-segment_tree <- prune(segment_tree, cp = optimal_cp_elbow)
-
+# explore the resulting segments
+segments <- extract_segments(segment_tree, alpha = 0.15)
+print(segments)
 
 # Predict treatment effect and compare with actual treatment effect
 tau <- predict(segment_tree, dat)
@@ -67,16 +58,25 @@ p_treat <- p_x(rep(1, n), X1, X2, X3)
 p_cont <- p_x(rep(0, n), X1, X2, X3)
 cate <- p_treat - p_cont
 
-par(mfrow = c(1, 3))
 y_lim <- c(min(tau, cate), max(tau, cate))
 plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "segmenTree",
      xlab = "X1", ylab = "true (red) vs predicted (black) lift")
 points(dat$X1, cate, col = "red")
 points(dat$X1, tau)
 
-# explore the resulting segments
-segments <- extract_segments(segment_tree, alpha = 0.15)
-print(segments)
+# find optimal cp and train final model - still WIP
+optimal_cp_cv <- tune_cp(segment_tree, cp_num = 6, train_frac = 0.5, M = 100)
+optimal_cp_cv <- optimal_cp_cv$optimal_cp
+pruned_segment_tree <- prune(segment_tree, cp = optimal_cp_cv)
+
+tau <- predict(pruned_segment_tree, dat)
+y_lim <- c(min(tau, cate), max(tau, cate))
+
+par(mfrow = c(1, 3))
+plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "segmenTree - pruned",
+     xlab = "X1", ylab = "true (red) vs predicted (black) lift")
+points(dat$X1, cate, col = "red")
+points(dat$X1, tau)
 
 # Compare to a regular classfication model
 dat2 <- data.frame(y, X1, X2, X3, Tr)

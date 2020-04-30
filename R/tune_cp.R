@@ -1,13 +1,13 @@
 #' @title Tune cp hyper parameter using cross validation
 #' @description This function uses cross validation to find the optimal cp.
 #'
-#' @details For every cp value the tree is pruned accordignly. Next the data is
-#' repeateddly split to train and test, where's the train is used to estimate lift
-#' in each node. The metric calculated at each noded is the multiplication of
+#' @details For every cp value the tree is pruned accordingly. Next the data is
+#' repeatedly split to train and test, where's the train is used to estimate lift
+#' in each node. The metric calculated at each node is the multiplication of
 #' the train and test lifts. If their signs agree a positive outcome is obtained. 
 #' Otherwise, a negative one. 
 
-#' @return a list `measures` with 2 elemnts: 
+#' @return a list `measures` with 2 elements: 
 #' 
 #' 1. M X cp_num X 2 array. 
 #' array\[,,1\] contains root mean effective lift: 
@@ -40,7 +40,7 @@ tune_cp <- function(rpart_fit, cp_num = 10, train_frac = 0.8, M = 50){
     leaves <- which(pruned_tree$frame$var == "<leaf>")
     for(i in 1:nrow(ans)){
       train_logic <- sample(c(rep(T, nrow(rpart_fit$y) * train_frac), 
-                       rep(F, nrow(rpart_fit$y) - nrow(rpart_fit$y) * train_frac)))
+                              rep(F, nrow(rpart_fit$y) - nrow(rpart_fit$y) * train_frac)))
       
       res <- sapply(leaves, function(leaf){
         train_est <- mean(pruned_tree$y[train_logic & pruned_tree$where == leaf & pruned_tree$y[, 2] == 1, 1]) - 
