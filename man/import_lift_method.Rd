@@ -7,14 +7,14 @@
 import_lift_method(f_n = NULL)
 }
 \arguments{
-\item{f_n}{A function that takes as input the sub population
-size and returns a scalar/vector of the same length. This
-number is used to weight the commpeting sub populations when
-making the split. See example below for a use case. If NULL
+\item{f_n}{a function that takes as input the split sample
+size and returns a scalar/vector of the same length. this
+number is used to weight the competing sub populations when
+making the split. see example below for a use case. if NULL
 the sample size is ignored when comparing splits.}
 }
 \value{
-A list containing eval, split and init functions.
+a list containing eval, split and init functions.
 }
 \description{
 \code{import_lift_method} is a function that
@@ -23,7 +23,7 @@ with the rpart function.
 See example below for more details on it's usage.
 }
 \details{
-The rpart function accepts in the method argument
+the rpart function accepts in the method argument
 a user defined list. This function imports the list that
 implements a segment tree.
 }
@@ -52,7 +52,7 @@ lift_method <- import_lift_method()
 segment_tree <- rpart(y ~ ., data = dat,
               method = lift_method,
               control = rpart.control(cp = 0, minbucket = 1000),
-              parms = list(), x = T)
+              x = T)
 
 # explore the resulting segments
 segments <- extract_segments(segment_tree, alpha = 0.15)

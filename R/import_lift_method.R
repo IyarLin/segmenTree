@@ -2,18 +2,18 @@
 #'
 #' @description \code{import_lift_method} is a function that
 #' imports a list of functions to serve as a user defined method
-#' with the rpart function.
-#' See example below for more details on it's usage.
+#' with the \code{rpart} function. see example below for more details on 
+#' it's usage.
 #' 
-#' @param f_n A function that takes as input the sub population
-#' size and returns a scalar/vector of the same length. This
-#' number is used to weight the commpeting sub populations when
-#' making the split. See example below for a use case. If NULL
+#' @param f_n a function that takes as input the split sample
+#' size and returns a scalar/vector of the same length. this
+#' number is used to weight the competing sub populations when
+#' making the split. see example below for a use case. if NULL
 #' the sample size is ignored when comparing splits.
 #'
-#' @return A list containing eval, split and init functions.
+#' @return a list containing eval, split and init functions.
 #' @example examples/segmenTree_example.R
-#' @details The rpart function accepts in the method argument
+#' @details the rpart function accepts in the method argument
 #' a user defined list. This function imports the list that
 #' implements a segment tree.
 
@@ -37,9 +37,9 @@ import_lift_method <- function (f_n = NULL)
     
     list(label = lift, deviance = deviance)
   }, split = function(y, wt, x, parms, continuous) {
+    n <- nrow(y)
     if(is.null(f_n)) f_n <- function(x) 1
     if (continuous) {
-      n <- nrow(y)
       positive_cases <- sum(y[, 1])
       treatment_cases <- sum(y[, 2])
       cases_left <- 1:(n - 1)
@@ -69,25 +69,28 @@ import_lift_method <- function (f_n = NULL)
       lift_right[is.nan(lift_right)] <- 0
       lift_right_abs <- abs(lift_right)
       
-      goodness <- pmax(lift_left_abs*f_n(cases_left), 
-                       lift_right_abs*f_n(cases_right))
+      goodness <- pmax(lift_left_abs, 
+                       lift_right_abs)
       list(goodness = goodness, direction = sign(lift_left - lift_right))
     } else {
       cases_x <- tapply(y[, 1], x, length)
       positive_cases_x <- tapply(y[, 1], x, sum)
       treatment_cases_x <- tapply(y[, 2], x, sum)
       control_cases_x <- cases_x - treatment_cases_x
-      positive_treatment_x <- tapply(y[, 1] * y[, 2], x, 
-                                     sum)
+      
+      positive_treatment_x <- tapply(y[, 1] * y[, 2], x, sum)
       positive_rate_treatment_x <- positive_treatment_x/treatment_cases_x
       positive_rate_treatment_x[is.nan(positive_rate_treatment_x)] <- 0
+      
       positive_control_x <- positive_cases_x - positive_treatment_x
       positive_rate_control_x <- positive_control_x/control_cases_x
       positive_rate_control_x[is.nan(positive_rate_control_x)] <- 0
+      
       lifts <- positive_rate_treatment_x - positive_rate_control_x
       ux <- sort(unique(x))
       ord <- order(abs(lifts))
       nx <- length(ux)
+      
       cases_x_left <- cumsum(cases_x[ord])[-nx]
       cases_x_right <- (n - cases_x_left)[-nx]
       positive_cases <- sum(y[, 1])
@@ -117,11 +120,11 @@ import_lift_method <- function (f_n = NULL)
       lift_right[is.nan(lift_right)] <- 0
       lift_right_abs <- abs(lift_right)
       
-      goodness <- pmax(lift_left_abs*f_n(cases_x_left), 
-                       lift_right_abs*f_n(cases_x_right))
+      goodness <- pmax(lift_left_abs, 
+                       lift_right_abs)
       list(goodness = goodness, direction = ux[ord])
     }
-  }, init = function(y, offset, parms, wt) {
+  }, init = function(y, offset, parms = NULL, wt) {
     if (!is.matrix(y) | ncol(y) != 2) {
       stop("y has to be a 2 column matrix")
     }
@@ -131,7 +134,7 @@ import_lift_method <- function (f_n = NULL)
     if (!missing(offset) && length(offset) > 0) {
       warning("offset argument ignored")
     }
-    parms$n <- nrow(y)
+    if(!identical(wt, rep(1, nrow(y)))) stop("segmenTree does not support weights argument wt")
     sfun <- function(yval, dev, wt, ylevel, digits) {
       paste(" lift=", format(signif(yval, digits)), ", deviance=", 
             format(signif(dev, digits)), sep = "")

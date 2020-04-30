@@ -1,10 +1,15 @@
-set.seed(1) # vary this and the sample size to get a sense of the model performance
 library(segmenTree)
+# In the script below you can vary the seed, the effect_size and sample size 
+# to get a sense of model performance sensitivity
+set.seed(2) 
+
 
 # Generate a dataset
+effect_size <- 0.25
 p_x <- function(Tr, X1, X2, X3){
   lp <- 2*X1 + 0.2*X2 + as.numeric(X3)/6
-  0.25 + 2*Tr*X1^3 + 0.5*exp(lp)/(1+exp(lp))
+  effect_size + (effect_size/0.125)*Tr*X1^3 + 
+    (1 - 2*effect_size)*exp(lp)/(1+exp(lp))
 }
 
 n <- 10000
@@ -20,9 +25,9 @@ dat <- data.frame(y = I(y_mat), X1, X2, X3)
 # Fit a segment tree
 lift_method <- import_lift_method()
 segment_tree <- rpart(y ~ ., data = dat,
-              method = lift_method,
-              control = rpart.control(cp = 0, minbucket = 1000),
-              parms = list(), x = T)
+                      method = lift_method,
+                      control = rpart.control(cp = 0, minbucket = 1000),
+                      x = T)
 
 # explore the resulting segments
 segments <- extract_segments(segment_tree, alpha = 0.15)

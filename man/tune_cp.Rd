@@ -63,7 +63,7 @@ lift_method <- import_lift_method()
 segment_tree <- rpart(y ~ ., data = dat,
               method = lift_method,
               control = rpart.control(cp = 0, minbucket = 1000),
-              parms = list(), x = T)
+              x = T)
 
 # explore the resulting segments
 segments <- extract_segments(segment_tree, alpha = 0.15)

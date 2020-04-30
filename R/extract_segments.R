@@ -1,14 +1,14 @@
 #' @title Extract lift segments from an rpart object in a table form
 #'
 #' @description \code{extract_segments} takes as
-#' input a fitted rpart object using the lift_method
+#' input a fitted \code{rpart} object using the lift_method
 #' and returns the resulting segments in table form. See example
 #' below for more details on it's usage.
 #'
-#' @param rpart_fit An object of class \code{rpart} fitted with the method from \code{\link{import_lift_method}} and with \code{y = T}.
-#' @param alpha Optional alpha value for confiddence intervals
-#' @return A data.frame containing the resulting segments.
-#' It contains confidednce intervals with the alpha parameter specified in the \code{parms} argument to the \code{rpart} function.
+#' @param rpart_fit an object of class \code{rpart} fitted with the method 
+#' from \code{\link{import_lift_method}} and with \code{x = T} and \code{y = T}.
+#' @param alpha optional alpha value for confidence intervals
+#' @return a data.frame containing the resulting segments.
 #' @example examples/segmenTree_example.R
 #' @seealso \code{\link{import_lift_method}}
 #' @export

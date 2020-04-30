@@ -7,13 +7,13 @@
 extract_segments(rpart_fit, alpha = NULL)
 }
 \arguments{
-\item{rpart_fit}{An object of class \code{rpart} fitted with the method from \code{\link{import_lift_method}} and with \code{y = T}.}
+\item{rpart_fit}{an object of class \code{rpart} fitted with the method
+from \code{\link{import_lift_method}} and with \code{x = T} and \code{y = T}.}
 
-\item{alpha}{Optional alpha value for confiddence intervals}
+\item{alpha}{optional alpha value for confidence intervals}
 }
 \value{
-A data.frame containing the resulting segments.
-It contains confidednce intervals with the alpha parameter specified in the \code{parms} argument to the \code{rpart} function.
+a data.frame containing the resulting segments.
 }
 \description{
 \code{extract_segments} takes as
@@ -46,7 +46,7 @@ lift_method <- import_lift_method()
 segment_tree <- rpart(y ~ ., data = dat,
               method = lift_method,
               control = rpart.control(cp = 0, minbucket = 1000),
-              parms = list(), x = T)
+              x = T)
 
 # explore the resulting segments
 segments <- extract_segments(segment_tree, alpha = 0.15)
