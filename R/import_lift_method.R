@@ -69,8 +69,16 @@ import_lift_method <- function (f_n = NULL)
       lift_right[is.nan(lift_right)] <- 0
       lift_right_abs <- abs(lift_right)
       
-      goodness <- pmax(lift_left_abs, 
-                       lift_right_abs)
+      if(parms$preferred_lift == "both"){
+        goodness <- pmax(lift_left_abs, 
+                         lift_right_abs)
+      } else if (parms$preferred_lift == "higher"){
+        goodness <- pmax(lift_left, 
+                         lift_right)
+      } else {
+        goodness <- pmax(-lift_left, 
+                         -lift_right)
+      }
       list(goodness = goodness, direction = sign(lift_left - lift_right))
     } else {
       cases_x <- tapply(y[, 1], x, length)
@@ -120,11 +128,22 @@ import_lift_method <- function (f_n = NULL)
       lift_right[is.nan(lift_right)] <- 0
       lift_right_abs <- abs(lift_right)
       
-      goodness <- pmax(lift_left_abs, 
-                       lift_right_abs)
+      if(parms$preferred_lift == "both"){
+        goodness <- pmax(lift_left_abs, 
+                         lift_right_abs)
+      } else if (parms$preferred_lift == "higher"){
+        goodness <- pmax(lift_left, 
+                         lift_right)
+      } else {
+        goodness <- pmax(-lift_left, 
+                         -lift_right)
+      }
+
       list(goodness = goodness, direction = ux[ord])
     }
   }, init = function(y, offset, parms = NULL, wt) {
+    if(is.null(parms$preferred_lift)) parms$preferred_lift <- "both"
+    if(!parms$preferred_lift %in% c("both", "higher", "lower")) stop("parms$preferred_lift must be one of 'both', 'higher' or 'lower'")
     if (!is.matrix(y) | ncol(y) != 2) {
       stop("y has to be a 2 column matrix")
     }

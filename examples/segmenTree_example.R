@@ -1,7 +1,7 @@
 library(segmenTree)
 # In the script below you can vary the seed, the effect_size and sample size 
 # to get a sense of model performance sensitivity
-set.seed(2) 
+set.seed(1) 
 
 
 # Generate a dataset
@@ -25,7 +25,7 @@ dat <- data.frame(y = I(y_mat), X1, X2, X3)
 # Fit a segment tree
 lift_method <- import_lift_method()
 segment_tree <- rpart(y ~ ., data = dat,
-                      method = lift_method,
+                      method = lift_method, 
                       control = rpart.control(cp = 0, minbucket = 1000),
                       x = T)
 
@@ -45,7 +45,7 @@ plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "segmenTree",
 points(dat$X1, cate, col = "red")
 points(dat$X1, tau)
 
-# find optimal cp and train final model - still WIP
+# find optimal cp using cross validation
 optimal_cp_cv <- tune_cp(segment_tree, cp_num = 6, train_frac = 0.5, M = 100)
 optimal_cp_cv <- optimal_cp_cv$optimal_cp
 pruned_segment_tree <- prune(segment_tree, cp = optimal_cp_cv)
