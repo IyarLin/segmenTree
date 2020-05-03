@@ -71,13 +71,13 @@ import_lift_method <- function (f_n = NULL)
       
       if(parms$preferred_lift == "both"){
         goodness <- pmax(lift_left_abs*f_n(cases_left), 
-                         lift_right_abs*f_n(cases_rigt))
+                         lift_right_abs*f_n(cases_right))
       } else if (parms$preferred_lift == "higher"){
         goodness <- pmax(lift_left*f_n(cases_left), 
-                         lift_right*f_n(cases_rigt))
+                         lift_right*f_n(cases_right))
       } else {
         goodness <- pmax(-lift_left*f_n(cases_left), 
-                         -lift_right*f_n(cases_rigt))
+                         -lift_right*f_n(cases_right))
       }
       list(goodness = goodness, direction = sign(lift_left - lift_right))
     } else {
