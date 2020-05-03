@@ -5,26 +5,34 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: github_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, purl=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-The segmenTree package implements a decision tree based algorithm for exploration of heterogeneous treatment effects in Randomised Controlled Trial data. It uses the rpart package as the backend with a predifined method on top.
+```{r generate example file, eval=FALSE, echo=F}
+knitr::purl("README.Rmd", output = "examples/segmenTree_example.R")
+```
+The `segmenTree` package implements a decision tree based algorithm for exploration of heterogeneous treatment effects in Randomized Controlled Trial data. It uses the rpart package as the back-end with a predefined method on top.
 
 You can install and load the package from github using:
 
-```{r}
+```{r, purl=FALSE}
 pacman::p_load_gh("IyarLin/segmenTree")
 ```
 
-Let's generate a dataset:
+```{r, eval=FALSE, echo=FALSE}
+library(segmenTree)
+```
 
-```{r}
-set.seed(1) # vary this and the sample size to get a sense of the model performance
-# Generate a dataset
+Let's generate a dataset with a binary response:
+
+```{r generate a dataset}
+set.seed(1) # vary seed, n and effect_size below to get a sense of the model performance sensetivity
+effect_size <- 0.25
 p_x <- function(Tr, X1, X2, X3){
   lp <- 2*X1 + 0.2*X2 + as.numeric(X3)/6
-  0.25 + 2*Tr*X1^3 + 0.5*exp(lp)/(1+exp(lp))
+  effect_size + (effect_size/0.125)*Tr*X1^3 + 
+    (1 - 2*effect_size)*exp(lp)/(1+exp(lp))
 }
 
 n <- 10000
@@ -40,34 +48,30 @@ dat <- data.frame(y = I(y_mat), X1, X2, X3)
 
 Next, let's import the lift method and use rpart to fit a segment tree:
 
-```{r}
+```{r fit a segment tree}
 lift_method <- import_lift_method()
 segment_tree <- rpart(y ~ ., data = dat,
-              method = lift_method,
-              control = rpart.control(cp = 0),
-              parms = list(), y = T, x = T)
-
+                      method = lift_method, 
+                      control = rpart.control(cp = 0, minbucket = 1000),
+                      x = T)
 ```
 
-Next, we prune the tree. The package includesd 2 functions to do so: `tune_cp` and `cp_elbow`. We'll use the `cp_elbow` function which uses the elbow method along with elbow strength to find the optimal cp:
+One way of exploring the resulting tree is by printing the rpart object:
 
-```{r}
-optimal_cp <- cp_elbow(segment_tree)
-# prune:
-segment_tree <- prune(segment_tree, cp = optimal_cp)
+```{r explore resulting tree}
+segment_tree
 ```
 
+The `segmenTree` package also contains a utility function to extract the resulting segments:
 
-Let's explore the resulting segments:
-
-```{r, results = "asis", warning=F, message=F}
+```{r, warning=F, message=F}
 segments <- extract_segments(segment_tree, alpha = 0.15)
-pander::pandoc.table(segments, split.tables = Inf)
+print(segments)
 ```
 
-Let's compare the estimated lift (in black) vs the true lift (in red):
+Next, let's compare how the segment tree predictions (black) compare with the true treatment effect (red):
 
-```{r}
+```{r predict treatment effect and compare with actual treatment effect}
 tau <- predict(segment_tree, dat)
 p_treat <- p_x(rep(1, n), X1, X2, X3)
 p_cont <- p_x(rep(0, n), X1, X2, X3)
@@ -80,9 +84,48 @@ points(dat$X1, cate, col = "red")
 points(dat$X1, tau)
 ```
 
-Just to get a sense of why we need this kind of model, let's try to estimate lift by modelling both the treatment and covariates:
+We can see that the algorithm predicts well most of the curve, but did some over-fitting in the middle section.
 
-```{r}
+The `segmenTree::tunecp` function uses cross validation to find the optimal `cp` hyper parameter value.
+
+Below we can see the effective lift and error as a function of the `cp` parameter:
+
+```{r prune tree using tunecp, warning=FALSE}
+optimal_cp_cv <- tune_cp(segment_tree, cp_num = 6, train_frac = 0.5, M = 100)
+optimal_cp_cv <- optimal_cp_cv$optimal_cp
+pruned_segment_tree <- prune(segment_tree, cp = optimal_cp_cv)
+```
+
+The optimal `cp` maximizes the ratio between effective lift and error.
+
+Let's explore the resulting pruned tree segments:
+
+```{r, warning=F, message=F}
+segments <- extract_segments(pruned_segment_tree, alpha = 0.15)
+print(segments)
+```
+
+To demonstrate why we even need a specialized algorithm we'll compare the segmenTree model with 2 other approaches that use plain ML models:
+
+1. Model jointly the treatment and covariates. Predict: tau(x)=f(x,T=1) - f(x,T=0)  
+1. Train a model on the treatment units f_{T=1} and a separate model f_{T=0} on the control units and predict: tau(x) = f_{T=1}(x) - f_{T=0}(x)  
+
+We'll use a decision tree in both of the above.
+
+```{r compare segmenTree with 2 other approches}
+# segmenTree pruned model
+tau <- predict(pruned_segment_tree, dat)
+p_treat <- p_x(rep(1, n), X1, X2, X3)
+p_cont <- p_x(rep(0, n), X1, X2, X3)
+cate <- p_treat - p_cont
+
+y_lim <- c(min(tau, cate), max(tau, cate))
+plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "segmenTree",
+     xlab = "X1", ylab = "true (red) vs predicted (black) lift")
+points(dat$X1, cate, col = "red")
+points(dat$X1, tau)
+
+# Model jointly the treatment and covariates
 dat2 <- data.frame(y, X1, X2, X3, Tr)
 fit2 <- rpart(y ~ ., data = dat2)
 
@@ -95,11 +138,9 @@ plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "regular model",
      xlab = "X1", ylab = "")
 points(dat$X1, cate, col = "red")
 points(dat$X1, tau2)
-```
 
-Let's also try fitting a seperate model for treatment and control:
+# Train a model on the treatment units and a seperate model on the control units
 
-```{r}
 dat3_treat <- dat2[dat2$Tr == 1, -5]
 dat3_cont <- dat2[dat2$Tr == 0, -5]
 
@@ -109,7 +150,7 @@ dat2_treat <- dat2; dat2_cont <- dat2
 tau3 <- predict(fit3_treat, dat2) - predict(fit3_cont, dat2)
 
 y_lim <- c(min(tau3, cate), max(tau3, cate))
-plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "seperate models",
+plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "separate models",
      xlab = "X1", ylab = "")
 points(dat$X1, cate, col = "red")
 points(dat$X1, tau3)
