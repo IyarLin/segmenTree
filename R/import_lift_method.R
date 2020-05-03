@@ -33,7 +33,7 @@ import_lift_method <- function (f_n = NULL)
 
     lift <- positive_rate_treatment - positive_rate_control
     
-    deviance <- nrow(y)^3
+    deviance <- nrow(y)^4
     
     list(label = lift, deviance = deviance)
   }, split = function(y, wt, x, parms, continuous) {
@@ -70,14 +70,14 @@ import_lift_method <- function (f_n = NULL)
       lift_right_abs <- abs(lift_right)
       
       if(parms$preferred_lift == "both"){
-        goodness <- pmax(lift_left_abs, 
-                         lift_right_abs)
+        goodness <- pmax(lift_left_abs*f_n(cases_left), 
+                         lift_right_abs*f_n(cases_rigt))
       } else if (parms$preferred_lift == "higher"){
-        goodness <- pmax(lift_left, 
-                         lift_right)
+        goodness <- pmax(lift_left*f_n(cases_left), 
+                         lift_right*f_n(cases_rigt))
       } else {
-        goodness <- pmax(-lift_left, 
-                         -lift_right)
+        goodness <- pmax(-lift_left*f_n(cases_left), 
+                         -lift_right*f_n(cases_rigt))
       }
       list(goodness = goodness, direction = sign(lift_left - lift_right))
     } else {
@@ -129,14 +129,14 @@ import_lift_method <- function (f_n = NULL)
       lift_right_abs <- abs(lift_right)
       
       if(parms$preferred_lift == "both"){
-        goodness <- pmax(lift_left_abs, 
-                         lift_right_abs)
+        goodness <- pmax(lift_left_abs*f_n(cases_x_left), 
+                         lift_right_abs*f_n(cases_x_right))
       } else if (parms$preferred_lift == "higher"){
-        goodness <- pmax(lift_left, 
-                         lift_right)
+        goodness <- pmax(lift_left*f_n(cases_x_left), 
+                         lift_right*f_n(cases_x_right))
       } else {
-        goodness <- pmax(-lift_left, 
-                         -lift_right)
+        goodness <- pmax(-lift_left*f_n(cases_x_left), 
+                         -lift_right*f_n(cases_x_right))
       }
 
       list(goodness = goodness, direction = ux[ord])
