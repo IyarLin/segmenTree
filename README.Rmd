@@ -91,7 +91,7 @@ The `segmenTree::tunecp` function uses cross validation to find the optimal `cp`
 Below we can see the effective lift and error as a function of the `cp` parameter:
 
 ```{r prune tree using tunecp, warning=FALSE}
-optimal_cp_cv <- tune_cp(segment_tree, cp_num = 6, train_frac = 0.5, M = 100)
+optimal_cp_cv <- tune_cp(segment_tree)
 optimal_cp_cv <- optimal_cp_cv$optimal_cp
 pruned_segment_tree <- prune(segment_tree, cp = optimal_cp_cv)
 ```

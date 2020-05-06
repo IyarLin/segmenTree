@@ -1,7 +1,7 @@
 segmenTree package
 ================
 Iyar Lin
-03 May, 2020
+06 May, 2020
 
 The `segmenTree` package implements a decision tree based algorithm for
 exploration of heterogeneous treatment effects in Randomized Controlled
@@ -119,7 +119,7 @@ Below we can see the effective lift and error as a function of the `cp`
 parameter:
 
 ``` r
-optimal_cp_cv <- tune_cp(segment_tree, cp_num = 6, train_frac = 0.5, M = 100)
+optimal_cp_cv <- tune_cp(segment_tree)
 ```
 
 ![](README_files/figure-gfm/prune%20tree%20using%20tunecp-1.png)<!-- -->
@@ -146,8 +146,8 @@ print(segments)
 To demonstrate why we even need a specialized algorithm we’ll compare
 the segmenTree model with 2 other approaches that use plain ML models:
 
-1.  Model jointly the treatment and covariates. Predict: tau(x)=f(x,T=1)
-    - f(x,T=0)  
+1.  Model jointly the treatment and covariates. Predict:
+    tau(x)=f(x,T=1)-f(x,T=0)  
 2.  Train a model on the treatment units f\_{T=1} and a separate model
     f\_{T=0} on the control units and predict: tau(x) = f\_{T=1}(x) -
     f\_{T=0}(x)
