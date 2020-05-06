@@ -20,7 +20,7 @@ You can install and load the package from github using:
 pacman::p_load_gh("IyarLin/segmenTree")
 ```
 
-```{r, eval=FALSE, echo=FALSE}
+```{r, echo=FALSE}
 library(segmenTree)
 ```
 
@@ -107,7 +107,7 @@ print(segments)
 
 To demonstrate why we even need a specialized algorithm we'll compare the segmenTree model with 2 other approaches that use plain ML models:
 
-1. Model jointly the treatment and covariates. Predict: tau(x)=f(x,T=1) - f(x,T=0)  
+1. Model jointly the treatment and covariates. Predict: tau(x)=f(x,T=1)-f(x,T=0)  
 1. Train a model on the treatment units f_{T=1} and a separate model f_{T=0} on the control units and predict: tau(x) = f_{T=1}(x) - f_{T=0}(x)  
 
 We'll use a decision tree in both of the above.
