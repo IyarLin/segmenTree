@@ -5,7 +5,7 @@
 #' and returns the resulting segments in table form. See example
 #' below for more details on it's usage.
 #'
-#' @param rpart_fit an object of class \code{rpart} fitted with the method 
+#' @param segment_tree an object of class \code{rpart} fitted with the method 
 #' from \code{\link{import_lift_method}} and with \code{x = T} and \code{y = T}.
 #' @param alpha optional alpha value for confidence intervals
 #' @return a data.frame containing the resulting segments.
@@ -14,9 +14,9 @@
 #' @export
 
 
-extract_segments <- function(rpart_fit, alpha = NULL){
-  if(is.null(rpart_fit$y)) stop("rpart-fit must be the result of an rpart call with y = T")
-  if(is.null(rpart_fit$x)) stop("rpart-fit must be the result of an rpart call with x = T")
+extract_segments <- function(segment_tree, alpha = NULL){
+  if(is.null(segment_tree$y)) stop("rpart-fit must be the result of an rpart call with y = T")
+  if(is.null(segment_tree$x)) stop("rpart-fit must be the result of an rpart call with x = T")
   value_reduction <- function(df){
     if(df$eqn[1]=="="){
       if(nrow(df) == 1){
@@ -28,19 +28,19 @@ extract_segments <- function(rpart_fit, alpha = NULL){
     } else {
       df$val <- as.numeric(df$val)
       ans_low <- max(df$val[df$eqn == ">"])
-      if(is.infinite(ans_low)) ans_low <- min(rpart_fit$x[, colnames(rpart_fit$x) == df$var[1]], na.rm = T)
+      if(is.infinite(ans_low)) ans_low <- min(segment_tree$x[, colnames(segment_tree$x) == df$var[1]], na.rm = T)
       ans_high <- min(df$val[df$eqn == "<"])
-      if(is.infinite(ans_high)) ans_high <- max(rpart_fit$x[, colnames(rpart_fit$x) == df$var[1]], na.rm = T)
+      if(is.infinite(ans_high)) ans_high <- max(segment_tree$x[, colnames(segment_tree$x) == df$var[1]], na.rm = T)
       return(list(c(paste0(">=", ans_low), paste0("<", ans_high))))
     }
   }
   
-  leaves <- rpart_fit$frame
+  leaves <- segment_tree$frame
   leaves$node <- as.integer(row.names(leaves))
   row.names(leaves) <- NULL
   leaves <- leaves[leaves$var == "<leaf>", ]
   
-  paths <- path.rpart(rpart_fit, nodes = leaves$node, print.it = F)
+  paths <- path.rpart(segment_tree, nodes = leaves$node, print.it = F)
   segments <- sapply(paths, function(x){
     x <- x[-1] # remove root
     var <- gsub("[<|>|\\=].*", "", x)
@@ -64,10 +64,10 @@ extract_segments <- function(rpart_fit, alpha = NULL){
   segments <- segments[order(segments$lift, decreasing = T), ]
   
   if(!is.null(alpha)){
-    preds <- predict(rpart_fit)
+    preds <- predict(segment_tree)
     unique_preds <- segments$lift
     pred_ind <- match(preds, unique_preds)
-    CI <- tapply(rpart_fit$y, c(pred_ind, pred_ind), function(y_mat){
+    CI <- tapply(segment_tree$y, c(pred_ind, pred_ind), function(y_mat){
       y_mat <- matrix(y_mat, ncol = 2)
       positive_rate_treatment <- mean(y_mat[y_mat[, 2] == 1, 1])
       positive_rate_control <- mean(y_mat[y_mat[, 2] == 0, 1])

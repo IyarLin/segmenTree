@@ -59,9 +59,9 @@ points(dat$X1, tau)
 
 
 ## ----prune tree using tunecp, warning=FALSE--------------------------------------
-optimal_cp_cv <- tune_cp(segment_tree, cp_num = 6, train_frac = 0.5, M = 100)
+optimal_cp_cv <- tune_cp(segment_tree)
 optimal_cp_cv <- optimal_cp_cv$optimal_cp
-pruned_segment_tree <- prune(segment_tree, cp = optimal_cp_cv)
+pruned_segment_tree <- prune(segment_tree, cp = segment_tree$cptable[4,1])
 
 
 ## ---- warning=F, message=F-------------------------------------------------------

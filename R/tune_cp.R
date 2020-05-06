@@ -9,59 +9,58 @@
 
 #' @return a list `measures` with 2 elements: 
 #' 
-#' 1. M X cp_num X 2 array. 
-#' array\[,,1\] contains root mean effective lift: 
-#' \deqn{\sqrt{\sum lift_{train} \cdot lift_{test}}}
-#' array\[,,2\] contains root mean squared error: 
-#' \deqn{\sqrt{\sum (lift_{train} - lift_{test})^2}}
+#' 1. cp_values X 2 matrix 
+#' array\[,,1\] within node variance: 
+#' array\[,,2\] contains between node variance
 #' 
 #' 1. Optimal cp found to maximize the ratio between the 2 measures
 #' 
-#' As a by product it also plots the measures
-#' 
 #' @example examples/segmenTree_example.R
-#' @param rpart_fit An object of class rpart
-#' @param cp_num How many cp values to evaluate
-#' @param train_frac fraction of observations to be used to train the model in each cross validation sample
-#' @param M number of cross validation rounds
-
-#' @seealso \code{\link{cp_elbow}}
+#' @param segment_tree an object of class \code{rpart} fitted with the method 
+#' from \code{\link{import_lift_method}} and \code{y = T}.
+#' @param supress_plots should plots be suppressed?
 #'
 #' @export
 
-tune_cp <- function(rpart_fit, cp_num = 10, train_frac = 0.8, M = 50){
-  if(is.null(rpart_fit$y)) stop("must run rpart with y = T")
-  if(cp_num > nrow(rpart_fit$cptable)) cp_num <- nrow(rpart_fit$cptable)
-  cp_vec <- rpart_fit$cptable[1:cp_num, 1]
-  ans <- array(dim = c(M, ncol = length(cp_vec), 2), 
-               dimnames = list(1:M, cp_vec, c("effective_lift", "squared_error")))
-  for(j in 1:ncol(ans)){
-    pruned_tree <- prune(rpart_fit, cp = cp_vec[j])
+tune_cp <- function(segment_tree, supress_plots = F){
+  if(is.null(segment_tree$y)) stop("must run rpart with y = T")
+  cp_vec <- segment_tree$cptable[, 1]
+  ans <- matrix(nrow = length(cp_vec), ncol = 2, 
+               dimnames = list(cp_vec, c("between node variance", "within node variance")))
+  for(i in 1:nrow(ans)){
+    pruned_tree <- prune(segment_tree, cp = cp_vec[i])
     leaves <- which(pruned_tree$frame$var == "<leaf>")
-    for(i in 1:nrow(ans)){
-      train_logic <- sample(c(rep(T, nrow(rpart_fit$y) * train_frac), 
-                              rep(F, nrow(rpart_fit$y) - nrow(rpart_fit$y) * train_frac)))
+    res <- sapply(leaves, function(leaf){
+      positive_rate_treatment <- mean(pruned_tree$y[pruned_tree$where == leaf & pruned_tree$y[, 2] == 1, 1])
+      positive_rate_treatment <- replace(positive_rate_treatment, 
+                                         is.nan(positive_rate_treatment), 0)
+      treatment_cases <- sum(pruned_tree$where == leaf & pruned_tree$y[, 2] == 1)
       
-      res <- sapply(leaves, function(leaf){
-        train_est <- mean(pruned_tree$y[train_logic & pruned_tree$where == leaf & pruned_tree$y[, 2] == 1, 1]) - 
-          mean(pruned_tree$y[train_logic & pruned_tree$where == leaf & pruned_tree$y[, 2] == 0, 1])
-        test_est <- mean(pruned_tree$y[!train_logic & pruned_tree$where == leaf & pruned_tree$y[, 2] == 1, 1]) - 
-          mean(pruned_tree$y[!train_logic & pruned_tree$where == leaf & pruned_tree$y[, 2] == 0, 1])
-        return(c(train_est, test_est, sum(pruned_tree$where == leaf)))
-      })
-      res[is.nan(res)] <- 0
-      ans[i, j, 1] <- sqrt(weighted.mean(res[1, ] * res[2, ], res[3, ]))
-      ans[i, j, 2] <- sqrt(weighted.mean((res[1, ] - res[2, ])^2, res[3, ]))
-    }
+      positive_rate_control <- mean(pruned_tree$y[pruned_tree$where == leaf & pruned_tree$y[, 2] == 0, 1])
+      positive_rate_control <- replace(positive_rate_control, 
+                                       is.nan(positive_rate_control), 0)
+      control_cases <- sum(pruned_tree$where == leaf & pruned_tree$y[, 2] == 0)
+      
+      node_lift <- positive_rate_treatment - positive_rate_control
+      
+      node_variance <- positive_rate_treatment*(1-positive_rate_treatment)/treatment_cases + 
+        positive_rate_control*(1-positive_rate_control)/control_cases
+      
+      node_size <- sum(pruned_tree$where == leaf)
+      return(c(node_lift, node_variance, node_size))
+    })
+    ans[i, 1] <- var(res[1, ])*length(leaves)
+    ans[i, 2] <- weighted.mean(res[2, ], res[3, ])
   }
-  res[is.nan(res)] <- 0
-  effective_lift <- apply(ans[,,1], 2, mean)
-  error <- apply(ans[,,2], 2, mean)
-  ratio <- effective_lift/error
   
-  par(mfrow = c(1,3))
-  plot(effective_lift)
-  plot(error)
-  plot(ratio)
-  return(list(measures = ans, optimal_cp = cp_vec[which.max(ratio)]))
+  ans[is.na(ans)] <- 0
+  
+  if(!supress_plots){
+    par(mfrow = c(1,3))
+    plot(cp_vec, ans[, 1], main = "between node variance", ylab = "")
+    plot(cp_vec, ans[, 2], main = "within node variance", ylab = "")
+    plot(cp_vec, ans[, 1]/ans[, 2], main = "ratio", ylab = "")
+  }
+  
+  return(list(measures = ans, optimal_cp = cp_vec[which.max(ans[, 1]/ans[, 2])]))
 }

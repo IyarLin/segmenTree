@@ -4,29 +4,22 @@
 \alias{tune_cp}
 \title{Tune cp hyper parameter using cross validation}
 \usage{
-tune_cp(rpart_fit, cp_num = 10, train_frac = 0.8, M = 50)
+tune_cp(segment_tree, supress_plots = F)
 }
 \arguments{
-\item{rpart_fit}{An object of class rpart}
+\item{segment_tree}{an object of class \code{rpart} fitted with the method
+from \code{\link{import_lift_method}} and \code{y = T}.}
 
-\item{cp_num}{How many cp values to evaluate}
-
-\item{train_frac}{fraction of observations to be used to train the model in each cross validation sample}
-
-\item{M}{number of cross validation rounds}
+\item{supress_plots}{should plots be suppressed?}
 }
 \value{
 a list \code{measures} with 2 elements:
 \enumerate{
-\item M X cp_num X 2 array.
-array[,,1] contains root mean effective lift:
-\deqn{\sqrt{\sum lift_{train} \cdot lift_{test}}}
-array[,,2] contains root mean squared error:
-\deqn{\sqrt{\sum (lift_{train} - lift_{test})^2}}
+\item cp_values X 2 matrix
+array[,,1] within node variance:
+array[,,2] contains between node variance
 \item Optimal cp found to maximize the ratio between the 2 measures
 }
-
-As a by product it also plots the measures
 }
 \description{
 This function uses cross validation to find the optimal cp.
@@ -39,17 +32,17 @@ the train and test lifts. If their signs agree a positive outcome is obtained.
 Otherwise, a negative one.
 }
 \examples{
-## ----generate example file, eval=FALSE, echo=F--------------------------
+## ----generate example file, eval=FALSE, echo=F-----------------------------------
 ## knitr::purl("README.Rmd", output = "examples/segmenTree_example.R")
 
 
 
 
-## ---- eval=FALSE, echo=FALSE--------------------------------------------
-## library(segmenTree)
+## ---- echo=FALSE-----------------------------------------------------------------
+library(segmenTree)
 
 
-## ----generate a dataset-------------------------------------------------
+## ----generate a dataset----------------------------------------------------------
 set.seed(1) # vary seed, n and effect_size below to get a sense of the model performance sensetivity
 effect_size <- 0.25
 p_x <- function(Tr, X1, X2, X3){
@@ -69,7 +62,7 @@ y_mat <- cbind(y, Tr)
 dat <- data.frame(y = I(y_mat), X1, X2, X3)
 
 
-## ----fit a segment tree-------------------------------------------------
+## ----fit a segment tree----------------------------------------------------------
 lift_method <- import_lift_method()
 segment_tree <- rpart(y ~ ., data = dat,
                       method = lift_method, 
@@ -77,16 +70,16 @@ segment_tree <- rpart(y ~ ., data = dat,
                       x = T)
 
 
-## ----explore resulting tree---------------------------------------------
+## ----explore resulting tree------------------------------------------------------
 segment_tree
 
 
-## ---- warning=F, message=F----------------------------------------------
+## ---- warning=F, message=F-------------------------------------------------------
 segments <- extract_segments(segment_tree, alpha = 0.15)
 print(segments)
 
 
-## ----predict treatment effect and compare with actual treatment effect----
+## ----predict treatment effect and compare with actual treatment effect-----------
 tau <- predict(segment_tree, dat)
 p_treat <- p_x(rep(1, n), X1, X2, X3)
 p_cont <- p_x(rep(0, n), X1, X2, X3)
@@ -99,18 +92,18 @@ points(dat$X1, cate, col = "red")
 points(dat$X1, tau)
 
 
-## ----prune tree using tunecp, warning=FALSE-----------------------------
-optimal_cp_cv <- tune_cp(segment_tree, cp_num = 6, train_frac = 0.5, M = 100)
+## ----prune tree using tunecp, warning=FALSE--------------------------------------
+optimal_cp_cv <- tune_cp(segment_tree)
 optimal_cp_cv <- optimal_cp_cv$optimal_cp
-pruned_segment_tree <- prune(segment_tree, cp = optimal_cp_cv)
+pruned_segment_tree <- prune(segment_tree, cp = segment_tree$cptable[4,1])
 
 
-## ---- warning=F, message=F----------------------------------------------
+## ---- warning=F, message=F-------------------------------------------------------
 segments <- extract_segments(pruned_segment_tree, alpha = 0.15)
 print(segments)
 
 
-## ----compare segmenTree with 2 other approches--------------------------
+## ----compare segmenTree with 2 other approches-----------------------------------
 # segmenTree pruned model
 tau <- predict(pruned_segment_tree, dat)
 p_treat <- p_x(rep(1, n), X1, X2, X3)
@@ -153,7 +146,4 @@ plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "separate models",
 points(dat$X1, cate, col = "red")
 points(dat$X1, tau3)
 
-}
-\seealso{
-\code{\link{cp_elbow}}
 }
