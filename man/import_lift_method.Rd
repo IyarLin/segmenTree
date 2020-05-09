@@ -7,7 +7,7 @@
 import_lift_method(f_n = NULL)
 }
 \arguments{
-\item{f_n}{a function that takes as input the split sample
+\item{f_n}{a function that takes as input the split child node sample
 size and returns a scalar/vector of the same length. this
 number is used to weight the competing sub populations when
 making the split. see example below for a use case. if NULL
@@ -23,22 +23,26 @@ with the \code{rpart} function. see example below for more details on
 it's usage.
 }
 \details{
-the rpart function accepts in the method argument
+the \code{rpart} function accepts in the method argument
 a user defined list. This function imports the list that
-implements a segment tree.
+implements a segment tree. The \code{y} variable in the input
+data.frame must be a 2 column matrix who's first column
+contains the response variable values (either binary or numeric,
+categorical isn't supported) and the second column is a
+binary only treatment indicator.
 }
 \examples{
-## ----generate example file, eval=FALSE, echo=F-----------------------------------
+## ----generate example file, eval=FALSE, echo=F------------------------
 ## knitr::purl("README.Rmd", output = "examples/segmenTree_example.R")
 
 
 
 
-## ---- echo=FALSE-----------------------------------------------------------------
+## ---- echo=FALSE------------------------------------------------------
 library(segmenTree)
 
 
-## ----generate a dataset----------------------------------------------------------
+## ----generate a dataset-----------------------------------------------
 set.seed(1) # vary seed, n and effect_size below to get a sense of the model performance sensetivity
 effect_size <- 0.25
 p_x <- function(Tr, X1, X2, X3){
@@ -58,7 +62,7 @@ y_mat <- cbind(y, Tr)
 dat <- data.frame(y = I(y_mat), X1, X2, X3)
 
 
-## ----fit a segment tree----------------------------------------------------------
+## ----fit a segment tree-----------------------------------------------
 lift_method <- import_lift_method()
 segment_tree <- rpart(y ~ ., data = dat,
                       method = lift_method, 
@@ -66,16 +70,16 @@ segment_tree <- rpart(y ~ ., data = dat,
                       x = T)
 
 
-## ----explore resulting tree------------------------------------------------------
+## ----explore resulting tree-------------------------------------------
 segment_tree
 
 
-## ---- warning=F, message=F-------------------------------------------------------
+## ---- warning=F, message=F--------------------------------------------
 segments <- extract_segments(segment_tree, alpha = 0.15)
 print(segments)
 
 
-## ----predict treatment effect and compare with actual treatment effect-----------
+## ----predict treatment effect and compare with actual treatment effect----
 tau <- predict(segment_tree, dat)
 p_treat <- p_x(rep(1, n), X1, X2, X3)
 p_cont <- p_x(rep(0, n), X1, X2, X3)
@@ -88,18 +92,18 @@ points(dat$X1, cate, col = "red")
 points(dat$X1, tau)
 
 
-## ----prune tree using tunecp, warning=FALSE--------------------------------------
+## ----prune tree using tunecp, warning=FALSE---------------------------
 optimal_cp_cv <- tune_cp(segment_tree)
 optimal_cp_cv <- optimal_cp_cv$optimal_cp
-pruned_segment_tree <- prune(segment_tree, cp = segment_tree$cptable[4,1])
+pruned_segment_tree <- prune(segment_tree, cp = optimal_cp_cv)
 
 
-## ---- warning=F, message=F-------------------------------------------------------
+## ---- warning=F, message=F--------------------------------------------
 segments <- extract_segments(pruned_segment_tree, alpha = 0.15)
 print(segments)
 
 
-## ----compare segmenTree with 2 other approches-----------------------------------
+## ----compare segmenTree with 2 other approches------------------------
 # segmenTree pruned model
 tau <- predict(pruned_segment_tree, dat)
 p_treat <- p_x(rep(1, n), X1, X2, X3)
@@ -144,5 +148,5 @@ points(dat$X1, tau3)
 
 }
 \seealso{
-\code{\link{extract_segments}}
+\code{\link{extract_segments}}, \code{\link{tune_cp}}
 }

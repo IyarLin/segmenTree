@@ -1,7 +1,7 @@
 segmenTree package
 ================
 Iyar Lin
-06 May, 2020
+09 May, 2020
 
 The `segmenTree` package implements a decision tree based algorithm for
 exploration of heterogeneous treatment effects in Randomized Controlled

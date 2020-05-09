@@ -12,6 +12,6 @@ License: file LICENSE
 Depends: 
   rpart (>= 4.1.15), 
   R (>= 3.5.1)
-RoxygenNote: 7.0.2
+RoxygenNote: 7.1.0
 Roxygen: list(markdown = TRUE)
 Encoding: UTF-8

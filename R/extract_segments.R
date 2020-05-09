@@ -1,4 +1,4 @@
-#' @title Extract lift segments from an rpart object in a table form
+#' @title Extract lift segments from an rpart object in a data.frame format
 #'
 #' @description \code{extract_segments} takes as
 #' input a fitted \code{rpart} object using the lift_method
@@ -64,18 +64,25 @@ extract_segments <- function(segment_tree, alpha = NULL){
   segments <- segments[order(segments$lift, decreasing = T), ]
   
   if(!is.null(alpha)){
+    binary_y <- all(segment_tree$y[, 1] %in% c(0, 1))
     preds <- predict(segment_tree)
     unique_preds <- segments$lift
     pred_ind <- match(preds, unique_preds)
     CI <- tapply(segment_tree$y, c(pred_ind, pred_ind), function(y_mat){
       y_mat <- matrix(y_mat, ncol = 2)
-      positive_rate_treatment <- mean(y_mat[y_mat[, 2] == 1, 1])
-      positive_rate_control <- mean(y_mat[y_mat[, 2] == 0, 1])
-      lift <- positive_rate_treatment - positive_rate_control
+      mean_y_treatment <- mean(y_mat[y_mat[, 2] == 1, 1])
+      mean_y_control <- mean(y_mat[y_mat[, 2] == 0, 1])
+      lift <- mean_y_treatment - mean_y_control
       treatment_cases <- sum(y_mat[, 2] == 1)
       control_cases <- sum(y_mat[, 2] == 0)
-      lift_sd <- sqrt(positive_rate_treatment*(1 - positive_rate_treatment)/treatment_cases +
-                        positive_rate_control*(1 - positive_rate_control)/control_cases)
+      if(binary_y){
+        lift_sd <- sqrt(mean_y_treatment*(1 - mean_y_treatment)/treatment_cases +
+                          mean_y_control*(1 - mean_y_control)/control_cases)
+      } else {
+        lift_sd <- sqrt(var(y_mat[y_mat[, 2] == 1, 1]) + 
+                          var(y_mat[y_mat[, 2] == 0, 1]))
+      }
+      
       lift_lower = lift - qnorm(alpha/2, lower.tail = F)*lift_sd
       lift_upper = lift + qnorm(alpha/2, lower.tail = F)*lift_sd
       return(list(lift, lift_lower, lift_upper))

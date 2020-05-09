@@ -1,11 +1,11 @@
 #' @title Tune cp hyper parameter using cross validation
-#' @description This function uses cross validation to find the optimal cp.
+#' @description This function calculates within and between node 
+#' variance in order to obtain optimal \code{cp} value.
 #'
-#' @details For every cp value the tree is pruned accordingly. Next the data is
-#' repeatedly split to train and test, where's the train is used to estimate lift
-#' in each node. The metric calculated at each node is the multiplication of
-#' the train and test lifts. If their signs agree a positive outcome is obtained. 
-#' Otherwise, a negative one. 
+#' @details For every cp value a pruned tree is obtained. In every
+#' the node lift and variance are calculated. next between and within
+#' node variance are calculated. The optimal \code{cp} is the value
+#' which maximizes the ratio between/within variance.
 
 #' @return a list `measures` with 2 elements: 
 #' 
@@ -25,26 +25,35 @@
 tune_cp <- function(segment_tree, supress_plots = F){
   if(is.null(segment_tree$y)) stop("must run rpart with y = T")
   cp_vec <- segment_tree$cptable[, 1]
+  binary_y <- all(segment_tree$y[, 1] %in% c(0, 1))
   ans <- matrix(nrow = length(cp_vec), ncol = 2, 
                dimnames = list(cp_vec, c("between node variance", "within node variance")))
   for(i in 1:nrow(ans)){
     pruned_tree <- prune(segment_tree, cp = cp_vec[i])
     leaves <- which(pruned_tree$frame$var == "<leaf>")
     res <- sapply(leaves, function(leaf){
-      positive_rate_treatment <- mean(pruned_tree$y[pruned_tree$where == leaf & pruned_tree$y[, 2] == 1, 1])
-      positive_rate_treatment <- replace(positive_rate_treatment, 
-                                         is.nan(positive_rate_treatment), 0)
+      mean_y_treatment <- mean(pruned_tree$y[pruned_tree$where == leaf & pruned_tree$y[, 2] == 1, 1])
+      mean_y_treatment <- replace(mean_y_treatment, 
+                                         is.nan(mean_y_treatment), 0)
       treatment_cases <- sum(pruned_tree$where == leaf & pruned_tree$y[, 2] == 1)
       
-      positive_rate_control <- mean(pruned_tree$y[pruned_tree$where == leaf & pruned_tree$y[, 2] == 0, 1])
-      positive_rate_control <- replace(positive_rate_control, 
-                                       is.nan(positive_rate_control), 0)
+      mean_y_control <- mean(pruned_tree$y[pruned_tree$where == leaf & pruned_tree$y[, 2] == 0, 1])
+      mean_y_control <- replace(mean_y_control, 
+                                       is.nan(mean_y_control), 0)
       control_cases <- sum(pruned_tree$where == leaf & pruned_tree$y[, 2] == 0)
       
-      node_lift <- positive_rate_treatment - positive_rate_control
+      node_lift <- mean_y_treatment - mean_y_control
       
-      node_variance <- positive_rate_treatment*(1-positive_rate_treatment)/treatment_cases + 
-        positive_rate_control*(1-positive_rate_control)/control_cases
+      if(binary_y){
+        node_variance <- mean_y_treatment*(1-mean_y_treatment)/treatment_cases + 
+          mean_y_control*(1-mean_y_control)/control_cases
+      } else { # continuous
+        node_variance <- var(pruned_tree$y[pruned_tree$where == leaf & 
+                                             pruned_tree$y[, 2] == 1, 1]) + 
+          pruned_tree$y[pruned_tree$where == leaf & pruned_tree$y[, 2] == 0, 1]
+      }
+      
+      
       
       node_size <- sum(pruned_tree$where == leaf)
       return(c(node_lift, node_variance, node_size))
