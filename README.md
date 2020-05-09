@@ -5,8 +5,9 @@ Iyar Lin
 
 The `segmenTree` package implements a decision tree based algorithm for
 exploration of heterogeneous treatment effects in Randomized Controlled
-Trial data. It uses the rpart package as the back-end with a predefined
-method on top.
+Trial data. It supports continuous and binary response variable, and
+binary treatments. It uses the rpart package as the back-end with a
+predefined method on top.
 
 You can install and load the package from github using:
 
