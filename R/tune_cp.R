@@ -69,6 +69,7 @@ tune_cp <- function(segment_tree, supress_plots = F){
     plot(cp_vec, ans[, 1], main = "between node variance", ylab = "")
     plot(cp_vec, ans[, 2], main = "within node variance", ylab = "")
     plot(cp_vec, ans[, 1]/ans[, 2], main = "ratio", ylab = "")
+    par(mfrow=c(1,1))
   }
   
   return(list(measures = ans, optimal_cp = cp_vec[which.max(ans[, 1]/ans[, 2])]))
