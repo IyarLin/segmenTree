@@ -30,11 +30,11 @@ import_lift_method <- function (f_n = NULL)
   lift_method = list(eval = function(y, wt, parms) {
     mean_y_treatment <- mean(y[y[, 2] == 1, 1])
     mean_y_treatment <- replace(mean_y_treatment, 
-                                       is.nan(mean_y_treatment), 0)
+                                is.nan(mean_y_treatment), 0)
     mean_y_control <- mean(y[y[, 2] == 0, 1])
     mean_y_control <- replace(mean_y_control, 
-                                     is.nan(mean_y_control), 0)
-
+                              is.nan(mean_y_control), 0)
+    
     lift <- mean_y_treatment - mean_y_control
     
     deviance <- nrow(y)^4
@@ -73,16 +73,12 @@ import_lift_method <- function (f_n = NULL)
       lift_right[is.nan(lift_right)] <- 0
       lift_right_abs <- abs(lift_right)
       
-      if(parms$preferred_lift == "both"){
-        goodness <- pmax(lift_left_abs*f_n(cases_left), 
-                         lift_right_abs*f_n(cases_right))
-      } else if (parms$preferred_lift == "higher"){
-        goodness <- pmax(lift_left*f_n(cases_left), 
-                         lift_right*f_n(cases_right))
-      } else {
-        goodness <- pmax(-lift_left*f_n(cases_left), 
-                         -lift_right*f_n(cases_right))
-      }
+      
+      goodness <- abs(
+        lift_left_abs*f_n(cases_left) - 
+          lift_right_abs*f_n(cases_right)
+      )
+      
       list(goodness = goodness, direction = sign(lift_left - lift_right))
     } else {
       cases_x <- tapply(y[, 1], x, length)
@@ -132,22 +128,15 @@ import_lift_method <- function (f_n = NULL)
       lift_right[is.nan(lift_right)] <- 0
       lift_right_abs <- abs(lift_right)
       
-      if(parms$preferred_lift == "both"){
-        goodness <- pmax(lift_left_abs*f_n(cases_x_left), 
-                         lift_right_abs*f_n(cases_x_right))
-      } else if (parms$preferred_lift == "higher"){
-        goodness <- pmax(lift_left*f_n(cases_x_left), 
-                         lift_right*f_n(cases_x_right))
-      } else {
-        goodness <- pmax(-lift_left*f_n(cases_x_left), 
-                         -lift_right*f_n(cases_x_right))
-      }
-
+      goodness <- abs(
+        lift_left_abs*f_n(cases_x_left) - 
+          lift_right_abs*f_n(cases_x_right)
+      )
+      
       list(goodness = goodness, direction = ux[ord])
     }
   }, init = function(y, offset, parms = NULL, wt) {
-    if(is.null(parms$preferred_lift)) parms$preferred_lift <- "both"
-    if(!parms$preferred_lift %in% c("both", "higher", "lower")) stop("parms$preferred_lift must be one of 'both', 'higher' or 'lower'")
+    
     if (!is.matrix(y) | ncol(y) != 2) {
       stop("y has to be a 2 column matrix")
     }
