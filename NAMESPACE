@@ -2,4 +2,4 @@
 
 export(extract_segments)
 export(import_lift_method)
-export(tune_cp)
+export(prune_tree)

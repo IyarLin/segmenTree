@@ -1,14 +1,14 @@
-## ----generate example file, eval=FALSE, echo=F------------------------
+## ----generate example file, eval=F, echo=F------------------------------
 ## knitr::purl("README.Rmd", output = "examples/segmenTree_example.R")
 
 
 
 
-## ---- echo=FALSE------------------------------------------------------
+## ---- echo=FALSE--------------------------------------------------------
 library(segmenTree)
 
 
-## ----generate a dataset-----------------------------------------------
+## ----generate a dataset-------------------------------------------------
 set.seed(1) # vary seed, n and effect_size below to get a sense of the model performance sensetivity
 effect_size <- 0.25
 p_x <- function(Tr, X1, X2, X3){
@@ -28,7 +28,7 @@ y_mat <- cbind(y, Tr)
 dat <- data.frame(y = I(y_mat), X1, X2, X3)
 
 
-## ----fit a segment tree-----------------------------------------------
+## ----fit a segment tree-------------------------------------------------
 lift_method <- import_lift_method()
 segment_tree <- rpart(y ~ ., data = dat,
                       method = lift_method, 
@@ -36,11 +36,11 @@ segment_tree <- rpart(y ~ ., data = dat,
                       x = T)
 
 
-## ----explore resulting tree-------------------------------------------
+## ----explore resulting tree---------------------------------------------
 segment_tree
 
 
-## ---- warning=F, message=F--------------------------------------------
+## ---- warning=F, message=F----------------------------------------------
 segments <- extract_segments(segment_tree, alpha = 0.15)
 print(segments)
 
@@ -58,18 +58,43 @@ points(dat$X1, cate, col = "red")
 points(dat$X1, tau)
 
 
-## ----prune tree using tunecp, warning=FALSE---------------------------
+## ----prune tree using tunecp, warning=FALSE-----------------------------
 optimal_cp_cv <- tune_cp(segment_tree)
 optimal_cp_cv <- optimal_cp_cv$optimal_cp
 pruned_segment_tree <- prune(segment_tree, cp = optimal_cp_cv)
 
 
-## ---- warning=F, message=F--------------------------------------------
-segments <- extract_segments(pruned_segment_tree, alpha = 0.15)
-print(segments)
+## ----predict treatment effect pruned tree-------------------------------
+tau <- predict(pruned_segment_tree, dat)
+
+y_lim <- c(min(tau, cate), max(tau, cate))
+plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "segmenTree",
+     xlab = "X1", ylab = "true (red) vs predicted (black) lift")
+points(dat$X1, cate, col = "red")
+points(dat$X1, tau)
 
 
-## ----compare segmenTree with 2 other approches------------------------
+## ----fit segment tree with n weights------------------------------------
+lift_method <- import_lift_method(f_n = function(x) x)
+
+weighted_segment_tree <- rpart(y ~ ., data = dat,
+                      method = lift_method, 
+                      control = rpart.control(cp = 0, minbucket = 1000),
+                      x = T)
+
+
+## ----predict treatment effect weighted tree-----------------------------
+tau <- predict(weighted_segment_tree, dat)
+
+y_lim <- c(min(tau, cate), max(tau, cate))
+plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "segmenTree",
+     xlab = "X1", ylab = "true (red) vs predicted (black) lift")
+points(dat$X1, cate, col = "red")
+points(dat$X1, tau)
+
+
+## ----compare segmenTree with 2 other approches--------------------------
+par(mfrow = c(1, 3))
 # segmenTree pruned model
 tau <- predict(pruned_segment_tree, dat)
 p_treat <- p_x(rep(1, n), X1, X2, X3)
@@ -107,7 +132,7 @@ dat2_treat <- dat2; dat2_cont <- dat2
 tau3 <- predict(fit3_treat, dat2) - predict(fit3_cont, dat2)
 
 y_lim <- c(min(tau3, cate), max(tau3, cate))
-plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "separate models",
+plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "Two models",
      xlab = "X1", ylab = "")
 points(dat$X1, cate, col = "red")
 points(dat$X1, tau3)

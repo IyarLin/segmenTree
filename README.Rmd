@@ -9,9 +9,10 @@ output: github_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r generate example file, eval=FALSE, echo=F}
+```{r generate example file, eval=F, echo=F}
 knitr::purl("README.Rmd", output = "examples/segmenTree_example.R")
 ```
+
 The `segmenTree` package implements a decision tree based algorithm for exploration of heterogeneous treatment effects in Randomized Controlled Trial data. It supports continuous and binary response variable, and binary treatments. It uses the rpart package as the back-end with a predefined method on top.
 
 You can install and load the package from github using:
@@ -86,33 +87,64 @@ points(dat$X1, tau)
 
 We can see that the algorithm predicts well most of the curve, but did some over-fitting in the middle section.
 
-The `segmenTree::tunecp` function uses cross validation to find the optimal `cp` hyper parameter value.
+The `segmenTree::prune_tree` function uses cross validation to find the optimal `cp` hyper parameter value.
 
 Below we can see the effective lift and error as a function of the `cp` parameter:
 
-```{r prune tree using tunecp, warning=FALSE}
-optimal_cp_cv <- tune_cp(segment_tree)
+```{r prune tree using prune_tree, warning=FALSE}
+optimal_cp_cv <- prune_tree(segment_tree)
 optimal_cp_cv <- optimal_cp_cv$optimal_cp
 pruned_segment_tree <- prune(segment_tree, cp = optimal_cp_cv)
 ```
 
 The optimal `cp` maximizes the ratio between effective lift and error.
 
-Let's explore the resulting pruned tree segments:
+Let's check the new pruned tree predictions:
 
-```{r, warning=F, message=F}
-segments <- extract_segments(pruned_segment_tree, alpha = 0.15)
-print(segments)
+```{r predict treatment effect pruned tree}
+tau <- predict(pruned_segment_tree, dat)
+
+y_lim <- c(min(tau, cate), max(tau, cate))
+plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "segmenTree",
+     xlab = "X1", ylab = "true (red) vs predicted (black) lift")
+points(dat$X1, cate, col = "red")
+points(dat$X1, tau)
+```
+
+Looks like the tree got pruned a little too much.
+
+One other way we can reduce over-fitting is by adjusting how the leaf size is weighted. 
+
+```{r fit segment tree with n weights}
+lift_method <- import_lift_method(f_n = function(x) x)
+
+weighted_segment_tree <- rpart(y ~ ., data = dat,
+                      method = lift_method, 
+                      control = rpart.control(cp = 0, minbucket = 1000),
+                      x = T)
+```
+
+Let's see the resulting predictions:
+
+```{r predict treatment effect weighted tree}
+tau <- predict(weighted_segment_tree, dat)
+
+y_lim <- c(min(tau, cate), max(tau, cate))
+plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "segmenTree",
+     xlab = "X1", ylab = "true (red) vs predicted (black) lift")
+points(dat$X1, cate, col = "red")
+points(dat$X1, tau)
 ```
 
 To demonstrate why we even need a specialized algorithm we'll compare the segmenTree model with 2 other approaches that use plain ML models:
 
 1. Model jointly the treatment and covariates. Predict: tau(x)=f(x,T=1)-f(x,T=0)  
-1. Train a model on the treatment units f_{T=1} and a separate model f_{T=0} on the control units and predict: tau(x) = f_{T=1}(x) - f_{T=0}(x)  
+1. Train a model on the treatment units f_{T=1} and a separate model f_{T=0} on the control units and predict: tau(x) = f_{T=1}(x) - f_{T=0}(x). This is also called "Two model approach".   
 
 We'll use a decision tree in both of the above.
 
 ```{r compare segmenTree with 2 other approches}
+par(mfrow = c(1, 3))
 # segmenTree pruned model
 tau <- predict(pruned_segment_tree, dat)
 p_treat <- p_x(rep(1, n), X1, X2, X3)
@@ -150,7 +182,7 @@ dat2_treat <- dat2; dat2_cont <- dat2
 tau3 <- predict(fit3_treat, dat2) - predict(fit3_cont, dat2)
 
 y_lim <- c(min(tau3, cate), max(tau3, cate))
-plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "separate models",
+plot(c(min(dat$X1), max(dat$X1)), y_lim, type = "n", main = "Two models",
      xlab = "X1", ylab = "")
 points(dat$X1, cate, col = "red")
 points(dat$X1, tau3)

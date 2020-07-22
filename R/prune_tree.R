@@ -22,7 +22,7 @@
 #'
 #' @export
 
-tune_cp <- function(segment_tree, supress_plots = F){
+prune_tree <- function(segment_tree, supress_plots = F){
   if(is.null(segment_tree$y)) stop("must run rpart with y = T")
   cp_vec <- segment_tree$cptable[, 1]
   binary_y <- all(segment_tree$y[, 1] %in% c(0, 1))

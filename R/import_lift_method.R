@@ -21,7 +21,7 @@
 #' categorical isn't supported) and the second column is a
 #' binary only treatment indicator.
 
-#' @seealso \code{\link{extract_segments}}, \code{\link{tune_cp}}
+#' @seealso \code{\link{extract_segments}}, \code{\link{prune_tree}}
 #'
 #' @export
 
